@@ -38,6 +38,7 @@ const int FLOOR_WEIGHTS[LEVEL_COUNT][FLOOR_VARIANTS] = {
 const int GLOW_DECOR_MASKS[LEVEL_COUNT] = {1, 0, 32, 8, 4, 4, 8, 136, 36};
 
 const Color FLOOR_DARKEN = {192, 192, 192, 255};
+const unsigned int DECAL_CHANCE = 7;
 const int WALL_TOP_ROWS = 12;
 const int WALL_FACE_START = 6;
 const int WALL_FACE_ROWS = 20;
@@ -152,14 +153,14 @@ Textures loadTextures(const Level& level) {
         textures.liquidEdge = loadPixelTexture(liquid + "_edge.png");
     }
 
-    textures.doorHorizontalClosed = loadPixelTexture(props + "_door_h_closed.png");
-    textures.doorVerticalClosed = loadPixelTexture(props + "_door_v_closed.png");
-    loadNumbered(textures.doorHorizontalOpen, DOOR_FRAMES, props + "_door_h_open");
-    loadNumbered(textures.doorVerticalOpen, DOOR_FRAMES, props + "_door_v_open");
+    std::string kit = tiles + "_prop";
+    loadNumbered(textures.doorFaces, DOOR_FRAMES, kit + "_doorface");
+    loadNumbered(textures.doorTops, DOOR_FRAMES, kit + "_doortop");
+    loadNumbered(textures.decals, DECAL_VARIANTS, kit + "_decal");
     textures.exitTile = loadPixelTexture(props + "_exit.png");
     loadNumbered(textures.exitPulse, EXIT_FRAMES, props + "_exit_pulse");
-    textures.startPad = loadPixelTexture(props + "_start.png");
-    textures.trapOpen = loadPixelTexture(props + "_trap_open.png");
+    textures.startPad = loadPixelTexture(kit + "_start.png");
+    textures.trapOpen = loadPixelTexture(kit + "_trap.png");
 
     textures.oil = loadPixelTexture(art + "/04_items/item_oil.png");
     textures.mapItem = loadPixelTexture(art + "/04_items/item_map.png");
@@ -186,10 +187,9 @@ void unloadTextures(Textures& textures) {
     unloadMany(textures.wallDecor, WALL_DECOR_VARIANTS);
     unloadMany(textures.liquid, LIQUID_FRAMES);
     unloadOne(textures.liquidEdge);
-    unloadOne(textures.doorHorizontalClosed);
-    unloadOne(textures.doorVerticalClosed);
-    unloadMany(textures.doorHorizontalOpen, DOOR_FRAMES);
-    unloadMany(textures.doorVerticalOpen, DOOR_FRAMES);
+    unloadMany(textures.doorFaces, DOOR_FRAMES);
+    unloadMany(textures.doorTops, DOOR_FRAMES);
+    unloadMany(textures.decals, DECAL_VARIANTS);
     unloadOne(textures.exitTile);
     unloadMany(textures.exitPulse, EXIT_FRAMES);
     unloadOne(textures.startPad);
@@ -335,6 +335,20 @@ static void drawWallEdges(const Textures& textures, int x, int y, bool north, bo
     }
 }
 
+// Draws a wall front: a strip of top surface above a front face, a shadow under the lip,
+// and outlines along the open sides
+static void drawWallFront(const Textures& textures, const Texture2D& top, const Texture2D& face,
+                          int x, int y, bool north, bool east, bool west, Color tint) {
+    int faceY = y + WALL_TOP_ROWS * TILE_SCALE;
+    drawTileRows(top, 0, WALL_TOP_ROWS, x, y, tint);
+    drawTileRows(face, WALL_FACE_START, WALL_FACE_ROWS, x, faceY, tint);
+    Color dark = shade(textures.edgeDark, tint);
+    DrawRectangle(x, faceY - 2, TILE_SIZE, 2, dark);
+    DrawRectangleGradientV(x, faceY, TILE_SIZE, 10, Color{0, 0, 0, 110}, Color{0, 0, 0, 0});
+    DrawRectangle(x, y + TILE_SIZE - 2, TILE_SIZE, 2, dark);
+    drawWallEdges(textures, x, y, north, east, west, tint);
+}
+
 // Draws a wall cell. A wall with a wall to its south shows only its flat top. A wall with
 // open floor to its south shows a strip of top above its front face, with a shadow under
 // the lip, and sometimes a decoration on the face.
@@ -354,14 +368,7 @@ static void drawWall(const Maze& maze, const Textures& textures, int row, int co
     unsigned int faceRoll = hashCell(row, col, 7) % 100;
     int faceIndex = pickWeighted(WALL_FACE_WEIGHTS, WALL_FACE_VARIANTS, faceRoll);
     const Texture2D& face = decor >= 0 ? textures.wallDecor[decor] : textures.wallFaces[faceIndex];
-    int faceY = y + WALL_TOP_ROWS * TILE_SCALE;
-    drawTileRows(top, 0, WALL_TOP_ROWS, x, y, tint);
-    drawTileRows(face, WALL_FACE_START, WALL_FACE_ROWS, x, faceY, tint);
-    Color dark = shade(textures.edgeDark, tint);
-    DrawRectangle(x, faceY - 2, TILE_SIZE, 2, dark);
-    DrawRectangleGradientV(x, faceY, TILE_SIZE, 10, Color{0, 0, 0, 110}, Color{0, 0, 0, 0});
-    DrawRectangle(x, y + TILE_SIZE - 2, TILE_SIZE, 2, dark);
-    drawWallEdges(textures, x, y, !north, !east, !west, tint);
+    drawWallFront(textures, top, face, x, y, !north, !east, !west, tint);
 }
 
 // Lets a lit torch or lantern on a wall front glow
@@ -393,6 +400,9 @@ static void drawFloor(const Maze& maze, const Textures& textures, int row, int c
                       int y, Color tint) {
     int variant = pickWeighted(textures.floorWeights, FLOOR_VARIANTS, hashCell(row, col, 1) % 100);
     drawTile(textures.floors[variant], x, y, 0.0f, shade(tint, FLOOR_DARKEN));
+    if (hashCell(row, col, 9) % 100 < DECAL_CHANCE) {
+        drawTile(textures.decals[hashCell(row, col, 10) % DECAL_VARIANTS], x, y, 0.0f, tint);
+    }
     if (isWallForTiling(maze, row - 1, col)) {
         DrawRectangleGradientV(x, y, TILE_SIZE, 18, Color{0, 0, 0, 120}, Color{0, 0, 0, 0});
     }
@@ -405,14 +415,45 @@ static void drawFloor(const Maze& maze, const Textures& textures, int row, int c
     }
 }
 
-// Draws a door: horizontal in a wall that runs east to west, vertical otherwise
+// Draws a closed door: set in a front face in a wall that runs east to west, or seen from
+// above in a wall that runs north to south
 static void drawDoor(const Maze& maze, const Textures& textures, int row, int col, int x, int y,
                      Color tint) {
     bool runsEastWest = isWallForTiling(maze, row, col - 1) && isWallForTiling(maze, row, col + 1);
     if (runsEastWest) {
-        drawTile(textures.doorHorizontalClosed, x, y, 0.0f, tint);
+        const Texture2D& top = textures.wallTops[hashCell(row, col, 4) % WALL_TOP_VARIANTS];
+        drawWallFront(textures, top, textures.doorFaces[0], x, y, false, false, false, tint);
     } else {
-        drawTile(textures.doorVerticalClosed, x, y, 0.0f, tint);
+        drawTile(textures.doorTops[0], x, y, 0.0f, tint);
+        drawWallEdges(textures, x, y, false, true, true, tint);
+    }
+}
+
+// True if the cell is inside the maze and is water
+static bool isWaterAt(const Maze& maze, int row, int col) {
+    return isInside(maze, row, col) && maze.cells[row][col].tile == WATER;
+}
+
+// Draws a dark line with a light foam line inside it along every side of a water cell
+// that does not touch more water
+static void drawShore(const Maze& maze, int row, int col, int x, int y, Color tint) {
+    Color dark = shade(Color{8, 22, 34, 230}, tint);
+    Color foam = shade(Color{200, 230, 240, 150}, tint);
+    if (!isWaterAt(maze, row - 1, col)) {
+        DrawRectangle(x, y, TILE_SIZE, 2, dark);
+        DrawRectangle(x, y + 2, TILE_SIZE, 2, foam);
+    }
+    if (!isWaterAt(maze, row + 1, col)) {
+        DrawRectangle(x, y + TILE_SIZE - 2, TILE_SIZE, 2, dark);
+        DrawRectangle(x, y + TILE_SIZE - 4, TILE_SIZE, 2, foam);
+    }
+    if (!isWaterAt(maze, row, col - 1)) {
+        DrawRectangle(x, y, 2, TILE_SIZE, dark);
+        DrawRectangle(x + 2, y, 2, TILE_SIZE, foam);
+    }
+    if (!isWaterAt(maze, row, col + 1)) {
+        DrawRectangle(x + TILE_SIZE - 2, y, 2, TILE_SIZE, dark);
+        DrawRectangle(x + TILE_SIZE - 4, y, 2, TILE_SIZE, foam);
     }
 }
 
@@ -428,10 +469,12 @@ static void drawCellBase(const Maze& maze, const Textures& textures, int row, in
     } else if (tile == WATER && textures.liquid[0].id != 0) {
         int frame = static_cast<int>(GetTime() * 3.0) % LIQUID_FRAMES;
         drawTile(textures.liquid[frame], x, y, 0.0f, tint);
+        drawShore(maze, row, col, x, y, tint);
     } else if (tile == EXIT) {
         int frame = static_cast<int>(GetTime() * 6.0) % EXIT_FRAMES;
         drawTile(textures.exitPulse[frame], x, y, 0.0f, tint);
     } else if (row == 0 && col == 0) {
+        drawFloor(maze, textures, row, col, x, y, tint);
         drawTile(textures.startPad, x, y, 0.0f, tint);
     } else {
         drawFloor(maze, textures, row, col, x, y, tint);
