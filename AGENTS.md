@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Rules for every AI assistant working on this repository (Claude, ChatGPT, Copilot, Cursor, anything else). Read all of it before you write or change anything. It is distilled from the team handbook (v1.0, 17 Oct 2026).
+Rules for every AI assistant working on this repository. Read all of it before you write or change anything. It is distilled from the team handbook (v1.0, 17 Oct 2026).
 
 ## 0. Rules that override everything
 
@@ -22,7 +22,7 @@ Rules for every AI assistant working on this repository (Claude, ChatGPT, Copilo
 - Modes: **Campaign** (1 player, real-time, 9 mazes in 3 eras) and **Multiplayer** (2 to 4 players, pass the laptop, turn-based, each player sees only their own light).
 - 6 historical heroes, one always-on power each. 4 items: oil, map, key, trap.
 - Everything works offline. No online features, databases, accounts, quizzes, dice, chasing monsters or diagonal movement.
-- Team: **AD** Aleksandar Dyanov (lead, design, all headers, art, reviews), **AP** Aleksandar Petrov (backend logic), **LZ** Loris Zadikyan (frontend: drawing, screens, sound), **PT** Presiyan Tenev (QA, tests, balancing, history fact check).
+- Team: **AD** Aleksandar Dyanov (Scrum Master + frontend: headers, maze, drawing, art, reviews), **AP** Aleksandar Petrov (QA + backend: tests, QA doc, save, balancing, history fact check), **PT** Presiyan Tenev (frontend: screens, HUD, sound), **LZ** Loris Zadikyan (backend: game rules, levels, validation).
 
 Design pillars: dark and tense; real places and real history; strategy not luck (the only randomness is the maze layout); simple to explain (if a feature cannot be explained in two sentences, cut it).
 
@@ -65,15 +65,15 @@ crossroads/
 |---|---|---|---|
 | main.cpp | Window, main loop, switching screens | AD | raylib yes |
 | types.h | All enums and structs | AD | no |
-| maze | Create, generate, place features, destroy | AP | no |
-| game | Moving, fuel, items, traps, turns, stars, winner | AP | no |
-| levels | Level, arena, character tables; unlock checks | AP (data by AD) | no |
-| validation | Input checks | AP | no |
+| maze | Create, generate, place features, destroy | AD | no |
+| game | Moving (AD); fuel, items, traps, turns, stars, winner (LZ) | AD / LZ | no |
+| levels | Level, arena, character tables; unlock checks | LZ | no |
+| validation | Input checks | LZ | no |
 | save | Read and write save files | AP | no (fstream ok) |
-| render | Draw tiles, light, players, HUD | LZ | raylib yes |
-| screens | Menus, map, inputs, results | LZ (AD designs) | raylib yes |
-| audio | Sounds | LZ | raylib yes |
-| tests | Test functions | PT | cout yes |
+| render | Draw tiles, light, players, HUD | AD | raylib yes |
+| screens | Menus, map, inputs, results | PT | raylib yes |
+| audio | Sounds | PT | raylib yes |
+| tests | Test functions | AP | cout yes |
 
 One person per file at a time. Do not edit a file owned by someone else without being asked.
 
@@ -222,7 +222,7 @@ enum Screen { TITLE, NAME_ENTRY, MAIN_MENU, CAMPAIGN_MAP, LEVEL_INTRO, PLAYING, 
 
 Window 1280x720, 60 FPS, camera follows the player (a 50x50 maze must work).
 
-## 5. Game rules (the numbers are starting values; PT tunes)
+## 5. Game rules (the numbers are starting values; AP tunes)
 
 ### 5.1 Controls
 
@@ -366,7 +366,7 @@ ctest --test-dir build --output-on-failure
 
 CMake targets: `logic` (library, no raylib), `crossroads` (executable, links `logic` + raylib), `tests` (links `logic` only). Never make `logic` depend on raylib.
 
-### 8.1 Tests (`tests/tests.cpp`, PT)
+### 8.1 Tests (`tests/tests.cpp`, AP)
 
 Simple test functions, no test library. Each test sets up a small situation, calls one logic function, and checks with a `check()` helper that prints PASS or FAIL. Required list:
 
