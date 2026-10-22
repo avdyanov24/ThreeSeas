@@ -4,12 +4,6 @@ project(crossroads CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(MSVC)
-    add_compile_options(/W4 /WX)
-else()
-    add_compile_options(-Wall -Wextra -Werror)
-endif()
-
 include(FetchContent)
 FetchContent_Declare(raylib
     GIT_REPOSITORY https://github.com/raysan5/raylib.git
@@ -29,3 +23,12 @@ enable_testing()
 add_executable(tests tests/tests.cpp)
 target_link_libraries(tests logic)
 add_test(NAME tests COMMAND tests)
+
+# Warnings are errors for our code only (not for raylib)
+foreach(target logic crossroads tests)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4 /WX)
+    else()
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+    endif()
+endforeach()
