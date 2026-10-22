@@ -164,10 +164,10 @@ The game logic (`maze`, `game`, `levels`, `validation`, `save`) never uses `cin`
 
 | Member | Role |
 |---|---|
-| Aleksandar Dyanov | Scrum Master / Lead: design, architecture, art, reviews |
-| Aleksandar Petrov | Backend: maze and game logic |
-| Loris Zadikyan | Frontend: screens, drawing, sound |
-| Presiyan Tenev | QA: tests, bug reports, QA documentation |
+| Aleksandar Dyanov | Scrum Master + Frontend: headers, maze, drawing, art, reviews |
+| Aleksandar Petrov | QA + Backend: tests, QA documentation, save files |
+| Presiyan Tenev | Frontend: screens, HUD, sound |
+| Loris Zadikyan | Backend: game rules, levels, input validation |
 
 A school project ("Labyrinth", C++, 2026).
 
