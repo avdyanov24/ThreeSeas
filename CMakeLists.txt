@@ -18,6 +18,7 @@ target_include_directories(logic PUBLIC src)
 add_executable(crossroads src/main.cpp src/render.cpp
                           src/screens.cpp src/audio.cpp)
 target_link_libraries(crossroads logic raylib)
+target_compile_definitions(crossroads PRIVATE ART_DIR="${CMAKE_SOURCE_DIR}/art")
 
 enable_testing()
 add_executable(tests tests/tests.cpp)
