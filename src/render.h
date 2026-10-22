@@ -56,6 +56,7 @@ struct Textures {
     Texture2D mapItem;
     Texture2D key;
     Texture2D trapItem;
+    Texture2D glow;
     HeroTextures heroes[CHARACTER_COUNT];
 };
 
@@ -68,14 +69,21 @@ Textures loadTextures(const Level& level);
 // Frees every texture. Call it before the window closes.
 void unloadTextures(Textures& textures);
 
-// Draws the maze as the viewer sees it. The camera follows the viewer.
-// Lit cells are drawn in full colour, seen cells dim (items hidden), unknown cells
-// black. Tiles are drawn at TILE_SCALE with nearest-neighbour scaling.
+// Returns the world position that sits in the top-left corner of the screen so the
+// viewer is centred. The camera stops at the maze border, and a maze smaller than
+// the window is centred. World position (0, 0) is the top-left of the border ring
+// around the maze, so cell (row, col) starts at ((col + 1) * TILE_SIZE, (row + 1) * TILE_SIZE).
+Vector2 getCameraOrigin(const Maze& maze, const Player& viewer);
+
+// Draws the maze as the viewer sees it, with a one-tile wall border around it.
+// The camera follows the viewer. Lit cells are drawn in warm colour with items and
+// traps, seen cells dim (items hidden), unknown cells black. Walls pick their piece
+// from their neighbours. Tiles are drawn at TILE_SCALE with nearest-neighbour scaling.
 void drawMaze(const GameState& game, const Player& viewer, const Textures& textures);
 
-// Draws the dark layer with the soft, flickering circle of light around the viewer.
+// Draws the soft, flickering glow of the torch around the viewer, on top of the maze.
 // The flicker gets stronger below 30% fuel.
-void drawTorchLight(const Player& viewer, float timeSeconds);
+void drawTorchLight(const GameState& game, const Player& viewer, const Textures& textures);
 
 // Draws the player's sprite on their cell.
 void drawPlayer(const Player& player, const Textures& textures);
