@@ -14,6 +14,7 @@ const int WALL_FACE_VARIANTS = 4;
 const int WALL_DECOR_VARIANTS = 8;
 const int LIQUID_FRAMES = 3;
 const int DOOR_FRAMES = 4;
+const int DECAL_VARIANTS = 6;
 const int EXIT_FRAMES = 4;
 const int HERO_FRAMES = 4;
 
@@ -45,10 +46,9 @@ struct Textures {
     Color edgeLight;
     Texture2D liquid[LIQUID_FRAMES];
     Texture2D liquidEdge;
-    Texture2D doorHorizontalClosed;
-    Texture2D doorVerticalClosed;
-    Texture2D doorHorizontalOpen[DOOR_FRAMES];
-    Texture2D doorVerticalOpen[DOOR_FRAMES];
+    Texture2D doorFaces[DOOR_FRAMES];
+    Texture2D doorTops[DOOR_FRAMES];
+    Texture2D decals[DECAL_VARIANTS];
     Texture2D exitTile;
     Texture2D exitPulse[EXIT_FRAMES];
     Texture2D startPad;
