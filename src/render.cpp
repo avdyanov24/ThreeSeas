@@ -29,8 +29,19 @@ const LevelFolder LEVEL_FOLDERS[LEVEL_COUNT] = {
     {"09_shipka", "shipka", "ice"},
 };
 
-const char* const PLISKA_DECALS[DECAL_VARIANTS] = {"ash",    "bones",  "grass", "puddle",
-                                                   "rubble", "shards", "spear", "wheel"};
+const int FLOOR_WEIGHTS[LEVEL_COUNT][FLOOR_VARIANTS] = {
+    {22, 22, 22, 8, 4, 4, 8, 10},  {20, 14, 14, 6, 10, 10, 8, 18}, {32, 22, 3, 16, 6, 2, 3, 16},
+    {22, 22, 22, 10, 8, 8, 2, 6},  {20, 20, 20, 10, 8, 8, 10, 4}, {24, 24, 20, 10, 4, 6, 6, 6},
+    {20, 20, 20, 20, 10, 4, 6, 0}, {20, 20, 20, 12, 4, 8, 10, 6}, {24, 24, 20, 10, 8, 6, 4, 4},
+};
+
+const int GLOW_DECOR_MASKS[LEVEL_COUNT] = {1, 0, 32, 8, 4, 4, 8, 136, 36};
+
+const Color FLOOR_DARKEN = {192, 192, 192, 255};
+const int WALL_TOP_ROWS = 12;
+const int WALL_FACE_START = 6;
+const int WALL_FACE_ROWS = 20;
+const int WALL_FACE_WEIGHTS[WALL_FACE_VARIANTS] = {40, 40, 10, 10};
 
 const char* const HERO_FOLDERS[CHARACTER_COUNT] = {"asparuh", "krum",      "boris",
                                                    "simeon",  "ivan_asen", "levski"};
@@ -88,6 +99,33 @@ static void unloadMany(Texture2D textures[], int count) {
     }
 }
 
+// Reads the darkest and the lightest colour of a wall top picture, used for wall outlines
+static void loadEdgeColors(Textures& textures, const std::string& path) {
+    textures.edgeDark = Color{20, 14, 12, 255};
+    textures.edgeLight = Color{230, 220, 200, 255};
+    Image image = LoadImage(path.c_str());
+    if (image.data == nullptr) {
+        return;
+    }
+    int darkest = 1000;
+    int lightest = -1;
+    for (int y = 0; y < image.height; y++) {
+        for (int x = 0; x < image.width; x++) {
+            Color pixel = GetImageColor(image, x, y);
+            int brightness = pixel.r + pixel.g + pixel.b;
+            if (brightness < darkest) {
+                darkest = brightness;
+                textures.edgeDark = pixel;
+            }
+            if (brightness > lightest) {
+                lightest = brightness;
+                textures.edgeLight = pixel;
+            }
+        }
+    }
+    UnloadImage(image);
+}
+
 // Loads every texture the game draws for this level
 Textures loadTextures(const Level& level) {
     Textures textures{};
@@ -99,24 +137,15 @@ Textures loadTextures(const Level& level) {
     std::string tiles = art + "/03_levels/" + entry.folder + "/tiles/" + entry.prefix;
     std::string props = art + "/03_levels/" + entry.folder + "/props/" + entry.prefix;
 
-    loadNumbered(textures.floors, FLOOR_VARIANTS, tiles + "_floor");
-    if (level.id == 1) {
-        for (int i = 0; i < DECAL_VARIANTS; i++) {
-            textures.decals[i] = loadPixelTexture(tiles + "_decal_" + PLISKA_DECALS[i] + ".png");
-        }
-    } else {
-        loadNumbered(textures.decals, DECAL_VARIANTS, tiles + "_decal");
+    loadNumbered(textures.floors, FLOOR_VARIANTS, tiles + "_kitfloor");
+    for (int i = 0; i < FLOOR_VARIANTS; i++) {
+        textures.floorWeights[i] = FLOOR_WEIGHTS[level.id - 1][i];
     }
-    loadNumbered(textures.wallFront, WALL_FRONT_VARIANTS, tiles + "_wall_front");
-    textures.wallHorizontal = loadPixelTexture(tiles + "_wall_horizontal.png");
-    textures.wallVertical = loadPixelTexture(tiles + "_wall_vertical.png");
-    textures.wallCornerTopLeft = loadPixelTexture(tiles + "_wall_corner_tl.png");
-    textures.wallCornerTopRight = loadPixelTexture(tiles + "_wall_corner_tr.png");
-    textures.wallCornerBottomLeft = loadPixelTexture(tiles + "_wall_corner_bl.png");
-    textures.wallCornerBottomRight = loadPixelTexture(tiles + "_wall_corner_br.png");
-    textures.wallCross = loadPixelTexture(tiles + "_wall_cross.png");
-    textures.wallTJunction = loadPixelTexture(tiles + "_wall_t_junction.png");
-    textures.wallTorch = loadPixelTexture(tiles + "_wall_torch.png");
+    loadNumbered(textures.wallTops, WALL_TOP_VARIANTS, tiles + "_walltop");
+    loadNumbered(textures.wallFaces, WALL_FACE_VARIANTS, tiles + "_wallface");
+    loadNumbered(textures.wallDecor, WALL_DECOR_VARIANTS, tiles + "_walldecor");
+    textures.glowDecorMask = GLOW_DECOR_MASKS[level.id - 1];
+    loadEdgeColors(textures, tiles + "_walltop_01.png");
     if (entry.liquid != nullptr) {
         std::string liquid = tiles + "_" + entry.liquid;
         loadNumbered(textures.liquid, LIQUID_FRAMES, liquid);
@@ -152,17 +181,9 @@ Textures loadTextures(const Level& level) {
 // Frees every texture
 void unloadTextures(Textures& textures) {
     unloadMany(textures.floors, FLOOR_VARIANTS);
-    unloadMany(textures.decals, DECAL_VARIANTS);
-    unloadMany(textures.wallFront, WALL_FRONT_VARIANTS);
-    unloadOne(textures.wallHorizontal);
-    unloadOne(textures.wallVertical);
-    unloadOne(textures.wallCornerTopLeft);
-    unloadOne(textures.wallCornerTopRight);
-    unloadOne(textures.wallCornerBottomLeft);
-    unloadOne(textures.wallCornerBottomRight);
-    unloadOne(textures.wallCross);
-    unloadOne(textures.wallTJunction);
-    unloadOne(textures.wallTorch);
+    unloadMany(textures.wallTops, WALL_TOP_VARIANTS);
+    unloadMany(textures.wallFaces, WALL_FACE_VARIANTS);
+    unloadMany(textures.wallDecor, WALL_DECOR_VARIANTS);
     unloadMany(textures.liquid, LIQUID_FRAMES);
     unloadOne(textures.liquidEdge);
     unloadOne(textures.doorHorizontalClosed);
@@ -192,11 +213,6 @@ void unloadTextures(Textures& textures) {
 
 enum CellView { UNKNOWN_CELL, SEEN_CELL, LIT_CELL };
 
-const int PLAIN_FLOORS[4] = {0, 1, 2, 8};
-const int MEDIUM_FLOORS[2] = {3, 9};
-const int RARE_FLOORS[4] = {4, 5, 6, 7};
-const int PLAIN_FRONTS[3] = {0, 1, 2};
-const int RARE_FRONTS[5] = {3, 4, 5, 6, 7};
 const Color SEEN_TINT = {76, 80, 108, 255};
 
 // Returns a repeatable pseudo-random number for a cell, so a cell always looks the same
@@ -258,50 +274,134 @@ static bool isWallForTiling(const Maze& maze, int row, int col) {
     return tile == WALL || tile == DOOR;
 }
 
-// Draws a wall cell. A wall with open floor to its south shows its front face; any
-// other wall shows the top of the wall: a straight piece, a corner, a T or a cross.
+// Multiplies a colour by the light tint of a cell
+static Color shade(Color color, Color tint) {
+    return Color{static_cast<unsigned char>(color.r * tint.r / 255),
+                 static_cast<unsigned char>(color.g * tint.g / 255),
+                 static_cast<unsigned char>(color.b * tint.b / 255), color.a};
+}
+
+// Returns an index from weights that add up to 100, for a roll from 0 to 99
+static int pickWeighted(const int weights[], int count, unsigned int roll) {
+    int total = 0;
+    for (int i = 0; i < count; i++) {
+        total += weights[i];
+        if (static_cast<int>(roll) < total) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+// Draws the lowest rowCount rows of a texture from firstRow, scaled up, with its
+// top-left corner at (x, y)
+static void drawTileRows(const Texture2D& texture, int firstRow, int rowCount, int x, int y,
+                         Color tint) {
+    Rectangle source = {0.0f, static_cast<float>(firstRow), static_cast<float>(texture.width),
+                        static_cast<float>(rowCount)};
+    Rectangle destination = {static_cast<float>(x), static_cast<float>(y),
+                             static_cast<float>(TILE_SIZE),
+                             static_cast<float>(rowCount * TILE_SCALE)};
+    DrawTexturePro(texture, source, destination, Vector2{0.0f, 0.0f}, 0.0f, tint);
+}
+
+// Returns the decoration (0 to 7) on a wall front, or -1 for a plain wall. Only walls with
+// wall on both sides carry one, so a decoration always sits in the middle of a wall.
+static int getWallDecor(const Maze& maze, int row, int col) {
+    bool isMiddle = isWallForTiling(maze, row, col - 1) && isWallForTiling(maze, row, col + 1);
+    if (!isMiddle || hashCell(row, col, 5) % 100 >= 14) {
+        return -1;
+    }
+    return static_cast<int>(hashCell(row, col, 6) % WALL_DECOR_VARIANTS);
+}
+
+// Draws a dark outline with a light line inside it along every open side of a wall
+static void drawWallEdges(const Textures& textures, int x, int y, bool north, bool east,
+                          bool west, Color tint) {
+    Color dark = shade(textures.edgeDark, tint);
+    Color light = shade(textures.edgeLight, tint);
+    light.a = 110;
+    if (north) {
+        DrawRectangle(x, y, TILE_SIZE, 2, dark);
+        DrawRectangle(x, y + 2, TILE_SIZE, 2, light);
+    }
+    if (east) {
+        DrawRectangle(x + TILE_SIZE - 2, y, 2, TILE_SIZE, dark);
+        DrawRectangle(x + TILE_SIZE - 4, y, 2, TILE_SIZE, light);
+    }
+    if (west) {
+        DrawRectangle(x, y, 2, TILE_SIZE, dark);
+        DrawRectangle(x + 2, y, 2, TILE_SIZE, light);
+    }
+}
+
+// Draws a wall cell. A wall with a wall to its south shows only its flat top. A wall with
+// open floor to its south shows a strip of top above its front face, with a shadow under
+// the lip, and sometimes a decoration on the face.
 static void drawWall(const Maze& maze, const Textures& textures, int row, int col, int x, int y,
                      Color tint) {
     bool north = isWallForTiling(maze, row - 1, col);
     bool east = isWallForTiling(maze, row, col + 1);
     bool south = isWallForTiling(maze, row + 1, col);
     bool west = isWallForTiling(maze, row, col - 1);
-    if (!south) {
-        unsigned int hash = hashCell(row, col, 3) % 100;
-        int variant = PLAIN_FRONTS[(hash / 7) % 3];
-        if (hash < 14) {
-            variant = RARE_FRONTS[(hash / 3) % 5];
-        }
-        drawTile(textures.wallFront[variant], x, y, 0.0f, tint);
-    } else if (north && east && west) {
-        drawTile(textures.wallCross, x, y, 0.0f, tint);
-    } else if (east && west) {
-        drawTile(textures.wallTJunction, x, y, 0.0f, tint);
-    } else if (north && east) {
-        drawTile(textures.wallTJunction, x, y, -90.0f, tint);
-    } else if (north && west) {
-        drawTile(textures.wallTJunction, x, y, 90.0f, tint);
-    } else if (east) {
-        drawTile(textures.wallCornerTopLeft, x, y, 0.0f, tint);
-    } else if (west) {
-        drawTile(textures.wallCornerTopRight, x, y, 0.0f, tint);
-    } else {
-        drawTile(textures.wallVertical, x, y, 0.0f, tint);
+    const Texture2D& top = textures.wallTops[hashCell(row, col, 4) % WALL_TOP_VARIANTS];
+    if (south) {
+        drawTile(top, x, y, 0.0f, tint);
+        drawWallEdges(textures, x, y, !north, !east, !west, tint);
+        return;
     }
+    int decor = getWallDecor(maze, row, col);
+    unsigned int faceRoll = hashCell(row, col, 7) % 100;
+    int faceIndex = pickWeighted(WALL_FACE_WEIGHTS, WALL_FACE_VARIANTS, faceRoll);
+    const Texture2D& face = decor >= 0 ? textures.wallDecor[decor] : textures.wallFaces[faceIndex];
+    int faceY = y + WALL_TOP_ROWS * TILE_SCALE;
+    drawTileRows(top, 0, WALL_TOP_ROWS, x, y, tint);
+    drawTileRows(face, WALL_FACE_START, WALL_FACE_ROWS, x, faceY, tint);
+    Color dark = shade(textures.edgeDark, tint);
+    DrawRectangle(x, faceY - 2, TILE_SIZE, 2, dark);
+    DrawRectangleGradientV(x, faceY, TILE_SIZE, 10, Color{0, 0, 0, 110}, Color{0, 0, 0, 0});
+    DrawRectangle(x, y + TILE_SIZE - 2, TILE_SIZE, 2, dark);
+    drawWallEdges(textures, x, y, !north, !east, !west, tint);
 }
 
-// Draws a floor cell: mostly plain stone or earth, now and then a decoration
-static void drawFloor(const Textures& textures, int row, int col, int x, int y, Color tint) {
-    unsigned int hash = hashCell(row, col, 1) % 100;
-    unsigned int pick = hashCell(row, col, 2);
-    if (hash < 6) {
-        drawTile(textures.decals[pick % DECAL_VARIANTS], x, y, 0.0f, tint);
-    } else if (hash < 70) {
-        drawTile(textures.floors[PLAIN_FLOORS[pick % 4]], x, y, 0.0f, tint);
-    } else if (hash < 92) {
-        drawTile(textures.floors[MEDIUM_FLOORS[pick % 2]], x, y, 0.0f, tint);
-    } else {
-        drawTile(textures.floors[RARE_FLOORS[pick % 4]], x, y, 0.0f, tint);
+// Lets a lit torch or lantern on a wall front glow
+static void drawWallGlow(const Maze& maze, const Textures& textures, int row, int col, int x,
+                         int y) {
+    if (isWallForTiling(maze, row + 1, col)) {
+        return;
+    }
+    int decor = getWallDecor(maze, row, col);
+    if (decor < 0 || ((textures.glowDecorMask >> decor) & 1) == 0) {
+        return;
+    }
+    float phase = static_cast<float>(hashCell(row, col, 8) % 100);
+    float flicker = 1.0f + 0.06f * std::sin(static_cast<float>(GetTime()) * 9.0f + phase);
+    float radius = 1.7f * TILE_SIZE * flicker;
+    Rectangle source = {0.0f, 0.0f, static_cast<float>(textures.glow.width),
+                        static_cast<float>(textures.glow.height)};
+    float centerX = x + TILE_SIZE / 2.0f;
+    float centerY = y + TILE_SIZE * 0.55f;
+    Rectangle destination = {centerX - radius, centerY - radius, radius * 2.0f, radius * 2.0f};
+    BeginBlendMode(BLEND_ADDITIVE);
+    DrawTexturePro(textures.glow, source, destination, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+    EndBlendMode();
+}
+
+// Draws a floor cell: a weighted pick of this level's floors, with a soft shadow along
+// every wall next to it
+static void drawFloor(const Maze& maze, const Textures& textures, int row, int col, int x,
+                      int y, Color tint) {
+    int variant = pickWeighted(textures.floorWeights, FLOOR_VARIANTS, hashCell(row, col, 1) % 100);
+    drawTile(textures.floors[variant], x, y, 0.0f, shade(tint, FLOOR_DARKEN));
+    if (isWallForTiling(maze, row - 1, col)) {
+        DrawRectangleGradientV(x, y, TILE_SIZE, 18, Color{0, 0, 0, 120}, Color{0, 0, 0, 0});
+    }
+    if (isWallForTiling(maze, row, col - 1)) {
+        DrawRectangleGradientH(x, y, 10, TILE_SIZE, Color{0, 0, 0, 70}, Color{0, 0, 0, 0});
+    }
+    if (isWallForTiling(maze, row, col + 1)) {
+        DrawRectangleGradientH(x + TILE_SIZE - 10, y, 10, TILE_SIZE, Color{0, 0, 0, 0},
+                               Color{0, 0, 0, 70});
     }
 }
 
@@ -334,7 +434,7 @@ static void drawCellBase(const Maze& maze, const Textures& textures, int row, in
     } else if (row == 0 && col == 0) {
         drawTile(textures.startPad, x, y, 0.0f, tint);
     } else {
-        drawFloor(textures, row, col, x, y, tint);
+        drawFloor(maze, textures, row, col, x, y, tint);
     }
 }
 
@@ -426,6 +526,9 @@ void drawMaze(const GameState& game, const Player& viewer, const Textures& textu
             }
             Color tint = view == LIT_CELL ? getLitTint(viewer, row, col) : SEEN_TINT;
             drawCellBase(maze, textures, row, col, x, y, tint);
+            if (view == LIT_CELL) {
+                drawWallGlow(maze, textures, row, col, x, y);
+            }
             if (view == LIT_CELL && isInside(maze, row, col)) {
                 drawCellObjects(game, viewer, textures, row, col, x, y, tint);
             }

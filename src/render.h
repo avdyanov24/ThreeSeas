@@ -8,9 +8,10 @@ const int TILE_SOURCE_SIZE = 32;
 const int TILE_SCALE = 2;
 const int TILE_SIZE = TILE_SOURCE_SIZE * TILE_SCALE;
 
-const int FLOOR_VARIANTS = 10;
-const int DECAL_VARIANTS = 8;
-const int WALL_FRONT_VARIANTS = 8;
+const int FLOOR_VARIANTS = 8;
+const int WALL_TOP_VARIANTS = 4;
+const int WALL_FACE_VARIANTS = 4;
+const int WALL_DECOR_VARIANTS = 8;
 const int LIQUID_FRAMES = 3;
 const int DOOR_FRAMES = 4;
 const int EXIT_FRAMES = 4;
@@ -27,21 +28,21 @@ struct HeroTextures {
     Texture2D portrait;
 };
 
-// Every texture the drawing code needs for one level. The liquid is water on most
-// levels and ice on Shipka; levels without it leave those textures empty.
+// Every texture the drawing code needs for one level. Walls are built from a flat top
+// surface and a front face: the top fills a wall cell seen from above, and a wall with
+// open floor to its south shows the face below a thin strip of top. floorWeights says
+// how often each floor variant is drawn (they add up to 100). glowDecorMask has a bit
+// for each wall decoration that gives light, such as a torch. The liquid is water on
+// most levels and ice on Shipka; levels without it leave those textures empty.
 struct Textures {
     Texture2D floors[FLOOR_VARIANTS];
-    Texture2D decals[DECAL_VARIANTS];
-    Texture2D wallFront[WALL_FRONT_VARIANTS];
-    Texture2D wallHorizontal;
-    Texture2D wallVertical;
-    Texture2D wallCornerTopLeft;
-    Texture2D wallCornerTopRight;
-    Texture2D wallCornerBottomLeft;
-    Texture2D wallCornerBottomRight;
-    Texture2D wallCross;
-    Texture2D wallTJunction;
-    Texture2D wallTorch;
+    int floorWeights[FLOOR_VARIANTS];
+    Texture2D wallTops[WALL_TOP_VARIANTS];
+    Texture2D wallFaces[WALL_FACE_VARIANTS];
+    Texture2D wallDecor[WALL_DECOR_VARIANTS];
+    int glowDecorMask;
+    Color edgeDark;
+    Color edgeLight;
     Texture2D liquid[LIQUID_FRAMES];
     Texture2D liquidEdge;
     Texture2D doorHorizontalClosed;
