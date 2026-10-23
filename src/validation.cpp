@@ -33,10 +33,20 @@ bool isValidSize(int size, bool isMultiplayer) {
     return true;
 }
 
-// Checks whether a name has an allowed length. Returns true when valid.
+// Checks whether a name has an allowed length and characters. Returns true when valid.
 bool isValidName(const std::string& name) {
     if (name.empty() || name.length() > MAX_NAME_LENGTH) {
         return false;
+    }
+
+    for (int i = 0; i < name.length(); i++) {
+        char character = name[i];
+        bool isLowercaseLetter = character >= 'a' && character <= 'z';
+        bool isUppercaseLetter = character >= 'A' && character <= 'Z';
+        bool isDigit = character >= '0' && character <= '9';
+        if (!isLowercaseLetter && !isUppercaseLetter && !isDigit && character != '_') {
+            return false;
+        }
     }
 
     return true;
