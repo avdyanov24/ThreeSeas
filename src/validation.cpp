@@ -2,7 +2,7 @@
 
 // Converts text to a number. Returns true when every character is a digit.
 bool parseWholeNumber(const std::string& text, int& number) {
-    if (text.empty()) {
+    if (text.empty() || text.length() > 9) {
         return false;
     }
 
