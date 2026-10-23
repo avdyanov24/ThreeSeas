@@ -33,7 +33,14 @@ bool isValidSize(int size, bool isMultiplayer) {
     return true;
 }
 
-bool isValidName(const std::string&) { return false; }
+// Checks whether a name has an allowed length. Returns true when valid.
+bool isValidName(const std::string& name) {
+    if (name.empty() || name.length() > MAX_NAME_LENGTH) {
+        return false;
+    }
+
+    return true;
+}
 
 bool isValidPlayerCount(int) { return false; }
 
