@@ -23,6 +23,7 @@ int main() {
         EndDrawing();
     }
 
+    destroyGame(game);
     CloseWindow();
     return 0;
 }
