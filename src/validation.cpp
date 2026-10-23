@@ -19,7 +19,19 @@ bool parseWholeNumber(const std::string& text, int& number) {
     return true;
 }
 
-bool isValidSize(int, bool) { return false; }
+// Checks whether a maze size is in the allowed range. Returns true when valid.
+bool isValidSize(int size, bool isMultiplayer) {
+    int minimumSize = MIN_CAMPAIGN_SIZE;
+    if (isMultiplayer) {
+        minimumSize = MIN_MULTIPLAYER_SIZE;
+    }
+
+    if (size < minimumSize || size > MAX_SIZE) {
+        return false;
+    }
+
+    return true;
+}
 
 bool isValidName(const std::string&) { return false; }
 
