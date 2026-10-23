@@ -1,6 +1,23 @@
 #include "validation.h"
 
-bool parseWholeNumber(const std::string&, int&) { return false; }
+// Converts text to a number. Returns true when every character is a digit.
+bool parseWholeNumber(const std::string& text, int& number) {
+    if (text.empty()) {
+        return false;
+    }
+
+    int parsedNumber = 0;
+    for (int i = 0; i < text.length(); i++) {
+        char character = text[i];
+        if (character < '0' || character > '9') {
+            return false;
+        }
+        parsedNumber = parsedNumber * 10 + (character - '0');
+    }
+
+    number = parsedNumber;
+    return true;
+}
 
 bool isValidSize(int, bool) { return false; }
 
