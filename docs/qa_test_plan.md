@@ -83,3 +83,31 @@
 - **Input:** Burn 1 fuel from a player with fuel 1.
 - **Expected result:** Fuel is 0 and isOut is true.
 - **Actual result:** Not run yet
+
+### T13: Trap effects
+- **Purpose:** Check trap effects and note that no header function checks Krum's trap visibility.
+- **Function tested:** `pickUpItem`
+- **Input:** In multiplayer, enter another player's trap as a different player, its owner, and LEVSKI; check Krum visibility.
+- **Expected result:** Another player loses a turn; the owner and LEVSKI do not. Krum visibility is not testable here.
+- **Actual result:** Not run yet
+
+### T14: Water step cost
+- **Purpose:** Check that entering WATER costs 2 multiplayer steps.
+- **Function tested:** `getStepCost`
+- **Input:** Check the step cost for a WATER cell in a multiplayer maze.
+- **Expected result:** The step cost is 2.
+- **Actual result:** Not run yet
+
+### T15: Campaign stars
+- **Purpose:** Check star ratings at the documented time limits.
+- **Function tested:** `calculateStars`
+- **Input:** For size 10, check times of 40, 70, and 71 seconds.
+- **Expected result:** The results are 3, 2, and 1 star, respectively.
+- **Actual result:** Not run yet
+
+### T16: Next player selection
+- **Purpose:** Check that nextTurn skips players who are out and wraps around.
+- **Function tested:** `nextTurn`
+- **Input:** With 3 players, currentPlayer 2 is active and player 0 is out; call nextTurn.
+- **Expected result:** The next currentPlayer is 1.
+- **Actual result:** Not run yet
