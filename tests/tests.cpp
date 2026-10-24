@@ -15,6 +15,58 @@ void check(const std::string& testName, bool passed, int& failures) {
 	}
 }
 
+// Returns true if the maze exit can be reached from the start; returns false otherwise.
+bool canReachExit(const Maze& maze) {
+    if (maze.size <= 0 || maze.size > MAX_SIZE || maze.cells == nullptr) {
+        return false;
+    }
+
+    bool visited[MAX_SIZE][MAX_SIZE];
+    for (int row = 0; row < maze.size; row++) {
+        for (int col = 0; col < maze.size; col++) {
+            visited[row][col] = false;
+        }
+    }
+
+    if (maze.cells[0][0].tile == WALL) {
+        return false;
+    }
+
+    int stackRows[MAX_SIZE * MAX_SIZE];
+    int stackCols[MAX_SIZE * MAX_SIZE];
+    int stackSize = 0;
+    stackRows[stackSize] = 0;
+    stackCols[stackSize] = 0;
+    stackSize++;
+    visited[0][0] = true;
+
+    Direction directions[4] = {UP, DOWN, LEFT, RIGHT};
+    while (stackSize > 0) {
+        stackSize--;
+        int row = stackRows[stackSize];
+        int col = stackCols[stackSize];
+
+        if (row == maze.size - 1 && col == maze.size - 1) {
+            return true;
+        }
+
+        for (int i = 0; i < 4; i++) {
+            int nextRow = row + rowStep(directions[i]);
+            int nextCol = col + colStep(directions[i]);
+            if (isInside(maze, nextRow, nextCol) &&
+                maze.cells[nextRow][nextCol].tile != WALL &&
+                !visited[nextRow][nextCol]) {
+                stackRows[stackSize] = nextRow;
+                stackCols[stackSize] = nextCol;
+                stackSize++;
+                visited[nextRow][nextCol] = true;
+            }
+        }
+    }
+
+    return false;
+}
+
 // Checks campaign and multiplayer maze size limits; returns nothing.
 void testSizeValidation(int& failures) {
     check("T01 campaign size 9 is rejected", !isValidSize(9, false), failures);
