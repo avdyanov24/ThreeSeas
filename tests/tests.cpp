@@ -39,11 +39,22 @@ void testWholeNumberParsing(int& failures) {
     check("T02 parsed number becomes 42", number == 42, failures);
 }
 
+// Checks accepted and rejected player names; returns nothing.
+void testNameValidation(int& failures) {
+    check("T03 empty name is rejected", !isValidName(""), failures);
+    check("T03 13-character name is rejected", !isValidName("ABCDEFGHIJKLM"), failures);
+    check("T03 12-character name is accepted", isValidName("ABCDEFGHIJKL"), failures);
+    check("T03 name with a space is rejected", !isValidName("Ivan Petrov"), failures);
+    check("T03 name with a hyphen is rejected", !isValidName("Ivan-1"), failures);
+    check("T03 Ivan_1 is accepted", isValidName("Ivan_1"), failures);
+}
+
 // Prints the test summary and returns failure when any check fails.
 int main() {
 	int failures = 0;
     testSizeValidation(failures);
     testWholeNumberParsing(failures);
+    testNameValidation(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";
