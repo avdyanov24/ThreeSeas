@@ -12,7 +12,7 @@ void check(const std::string& testName, bool passed, int& failures) {
 	}
 }
 
-// Prints the test summary and returns success.
+// Prints the test summary and returns failure when any check fails.
 int main() {
 	int failures = 0;
 
@@ -22,5 +22,9 @@ int main() {
 		std::cout << failures << " checks failed\n";
 	}
 
-	return 0;
+	if (failures == 0) {
+		return 0;
+	}
+
+	return 1;
 }
