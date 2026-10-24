@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 
+#include "maze.h"
 #include "validation.h"
 
 // Prints a test result and increments failures when the test did not pass; returns nothing.
@@ -49,12 +50,40 @@ void testNameValidation(int& failures) {
     check("T03 Ivan_1 is accepted", isValidName("Ivan_1"), failures);
 }
 
+// Checks maze dimensions, allocation, and wall initialization; returns nothing.
+void testMazeSize(int& failures) {
+    Maze maze = createMaze(10);
+    check("T04 size 10 is recorded", maze.size == 10, failures);
+    check("T04 size 10 cells are allocated", maze.cells != nullptr, failures);
+    check("T04 size 10 first cell is a wall", maze.cells[0][0].tile == WALL, failures);
+    check("T04 size 10 last cell is a wall",
+          maze.cells[maze.size - 1][maze.size - 1].tile == WALL, failures);
+    destroyMaze(maze);
+
+    maze = createMaze(25);
+    check("T04 size 25 is recorded", maze.size == 25, failures);
+    check("T04 size 25 cells are allocated", maze.cells != nullptr, failures);
+    check("T04 size 25 first cell is a wall", maze.cells[0][0].tile == WALL, failures);
+    check("T04 size 25 last cell is a wall",
+          maze.cells[maze.size - 1][maze.size - 1].tile == WALL, failures);
+    destroyMaze(maze);
+
+    maze = createMaze(50);
+    check("T04 size 50 is recorded", maze.size == 50, failures);
+    check("T04 size 50 cells are allocated", maze.cells != nullptr, failures);
+    check("T04 size 50 first cell is a wall", maze.cells[0][0].tile == WALL, failures);
+    check("T04 size 50 last cell is a wall",
+          maze.cells[maze.size - 1][maze.size - 1].tile == WALL, failures);
+    destroyMaze(maze);
+}
+
 // Prints the test summary and returns failure when any check fails.
 int main() {
 	int failures = 0;
     testSizeValidation(failures);
     testWholeNumberParsing(failures);
     testNameValidation(failures);
+    testMazeSize(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";
