@@ -111,3 +111,31 @@
 - **Input:** With 3 players, currentPlayer 2 is active and player 0 is out; call nextTurn.
 - **Expected result:** The next currentPlayer is 1.
 - **Actual result:** Not run yet
+
+### T17: Multiplayer winner
+- **Purpose:** Check winner selection for an exit, the last burning torch, and a draw.
+- **Function tested:** `checkWinner`
+- **Input:** Check a player at EXIT, one player with fuel remaining, and all players out in the same round.
+- **Expected result:** The player at EXIT wins; otherwise the last burning player wins, or the result is DRAW.
+- **Actual result:** Not run yet
+
+### T18: Save and load results
+- **Purpose:** Check that results can be saved and loaded and a missing file is handled.
+- **Function tested:** `saveResult`, `loadResults`
+- **Input:** Save and load the documented record `Ivan 3 84.5 2`; load results when `save/results.txt` is missing.
+- **Expected result:** The record is read back; a missing file returns 0.
+- **Actual result:** Not run yet
+
+### T19: Destroy maze
+- **Purpose:** Check that destroying a maze clears its pointer and size.
+- **Function tested:** `destroyMaze`
+- **Input:** Create a size 10 maze and call destroyMaze.
+- **Expected result:** `cells` is nullptr and `size` is 0.
+- **Actual result:** Not run yet
+
+### T20: Unlocks and Free Play
+- **Purpose:** Check level, character, and arena unlock rules with and without Free Play.
+- **Function tested:** `isLevelUnlocked`, `isCharacterUnlocked`, `isArenaUnlocked`
+- **Input:** Check level 2 without a previous result; KRUM before era 1 is entered; arena 1 with 0 eras finished; then check each with Free Play.
+- **Expected result:** The first checks are locked; Free Play opens each one.
+- **Actual result:** Not run yet
