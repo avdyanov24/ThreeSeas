@@ -150,6 +150,21 @@ void testStartAndExitAreFloor(int& failures) {
     }
 }
 
+// Checks that the exit is reachable in generated mazes; returns nothing.
+void testExitIsReachable(int& failures) {
+    int sizes[4] = {10, 11, 25, 50};
+    for (int i = 0; i < 4; i++) {
+        srand(1);
+        Maze maze = createMaze(sizes[i]);
+        generatePaths(maze, 0, 0);
+        connectExit(maze);
+
+        std::string sizeLabel = "T06 size " + std::to_string(maze.size);
+        check(sizeLabel + " exit is reachable", canReachExit(maze), failures);
+        destroyMaze(maze);
+    }
+}
+
 // Prints the test summary and returns failure when any check fails.
 int main() {
 	int failures = 0;
@@ -158,6 +173,7 @@ int main() {
     testNameValidation(failures);
     testMazeSize(failures);
     testStartAndExitAreFloor(failures);
+    testExitIsReachable(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";
