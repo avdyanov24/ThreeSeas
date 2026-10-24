@@ -55,3 +55,31 @@
 - **Input:** In a size 10 maze, put a player at (0, 0) and try to move RIGHT into a WALL.
 - **Expected result:** The move returns false and the player's position stays at (0, 0).
 - **Actual result:** Not run yet
+
+### T09: Door access
+- **Purpose:** Check that a locked door needs a key unless the player is IVAN_ASEN.
+- **Function tested:** `canEnter`
+- **Input:** Check a DOOR cell for a player without a key, a player with a key, and an IVAN_ASEN player.
+- **Expected result:** The player without a key cannot enter; the other two can enter.
+- **Actual result:** Not run yet
+
+### T10: Oil fuel refill
+- **Purpose:** Check that oil adds 25% of maximum fuel without going over the maximum.
+- **Function tested:** `pickUpItem`
+- **Input:** Pick up OIL with maxFuel 100 and fuel 50, then with fuel 90.
+- **Expected result:** Fuel becomes 75 after the first pickup and 100 after the second.
+- **Actual result:** Not run yet
+
+### T11: Torch radius
+- **Purpose:** Check torch radius at 100%, 50%, and 10% fuel, including BORIS.
+- **Function tested:** `getTorchRadius`
+- **Input:** Check normal players and BORIS with maxFuel 100 and fuel 100, 50, and 10.
+- **Expected result:** Normal radii are 3, 2, and 1; BORIS adds 1 at each fuel level.
+- **Actual result:** Not run yet
+
+### T12: Torch out
+- **Purpose:** Check that the torch is out when fuel reaches 0.
+- **Function tested:** `burnFuel`
+- **Input:** Burn 1 fuel from a player with fuel 1.
+- **Expected result:** Fuel is 0 and isOut is true.
+- **Actual result:** Not run yet
