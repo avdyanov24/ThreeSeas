@@ -1,6 +1,7 @@
 // QA test functions (T01-T20).
 #include <iostream>
 #include <string>
+#include <cstdlib>
 
 #include "maze.h"
 #include "validation.h"
@@ -13,6 +14,58 @@ void check(const std::string& testName, bool passed, int& failures) {
 		std::cout << "FAIL " << testName << '\n';
 		failures++;
 	}
+}
+
+// Returns true if the maze exit can be reached from the start; returns false otherwise.
+bool canReachExit(const Maze& maze) {
+    if (maze.size <= 0 || maze.size > MAX_SIZE || maze.cells == nullptr) {
+        return false;
+    }
+
+    bool visited[MAX_SIZE][MAX_SIZE];
+    for (int row = 0; row < maze.size; row++) {
+        for (int col = 0; col < maze.size; col++) {
+            visited[row][col] = false;
+        }
+    }
+
+    if (maze.cells[0][0].tile == WALL) {
+        return false;
+    }
+
+    int stackRows[MAX_SIZE * MAX_SIZE];
+    int stackCols[MAX_SIZE * MAX_SIZE];
+    int stackSize = 0;
+    stackRows[stackSize] = 0;
+    stackCols[stackSize] = 0;
+    stackSize++;
+    visited[0][0] = true;
+
+    Direction directions[4] = {UP, DOWN, LEFT, RIGHT};
+    while (stackSize > 0) {
+        stackSize--;
+        int row = stackRows[stackSize];
+        int col = stackCols[stackSize];
+
+        if (row == maze.size - 1 && col == maze.size - 1) {
+            return true;
+        }
+
+        for (int i = 0; i < 4; i++) {
+            int nextRow = row + rowStep(directions[i]);
+            int nextCol = col + colStep(directions[i]);
+            if (isInside(maze, nextRow, nextCol) &&
+                maze.cells[nextRow][nextCol].tile != WALL &&
+                !visited[nextRow][nextCol]) {
+                stackRows[stackSize] = nextRow;
+                stackCols[stackSize] = nextCol;
+                stackSize++;
+                visited[nextRow][nextCol] = true;
+            }
+        }
+    }
+
+    return false;
 }
 
 // Checks campaign and multiplayer maze size limits; returns nothing.
@@ -77,6 +130,41 @@ void testMazeSize(int& failures) {
     destroyMaze(maze);
 }
 
+// Checks that generated mazes have a walkable start and an exit; returns nothing.
+void testStartAndExitAreFloor(int& failures) {
+    int sizes[4] = {10, 11, 25, 50};
+    for (int i = 0; i < 4; i++) {
+        srand(1);
+        Maze maze = createMaze(sizes[i]);
+        generatePaths(maze, 0, 0);
+        connectExit(maze);
+
+        int last = maze.size - 1;
+        std::string sizeLabel = "T05 size " + std::to_string(maze.size);
+        check(sizeLabel + " start is floor", maze.cells[0][0].tile == FLOOR, failures);
+        check(sizeLabel + " exit is EXIT", maze.cells[last][last].tile == EXIT, failures);
+        check(sizeLabel + " start is not a wall", maze.cells[0][0].tile != WALL, failures);
+        check(sizeLabel + " exit is not a wall", maze.cells[last][last].tile != WALL, failures);
+
+        destroyMaze(maze);
+    }
+}
+
+// Checks that the exit is reachable in generated mazes; returns nothing.
+void testExitIsReachable(int& failures) {
+    int sizes[4] = {10, 11, 25, 50};
+    for (int i = 0; i < 4; i++) {
+        srand(1);
+        Maze maze = createMaze(sizes[i]);
+        generatePaths(maze, 0, 0);
+        connectExit(maze);
+
+        std::string sizeLabel = "T06 size " + std::to_string(maze.size);
+        check(sizeLabel + " exit is reachable", canReachExit(maze), failures);
+        destroyMaze(maze);
+    }
+}
+
 // Prints the test summary and returns failure when any check fails.
 int main() {
 	int failures = 0;
@@ -84,6 +172,8 @@ int main() {
     testWholeNumberParsing(failures);
     testNameValidation(failures);
     testMazeSize(failures);
+    testStartAndExitAreFloor(failures);
+    testExitIsReachable(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";
