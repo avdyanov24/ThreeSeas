@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <cstdlib>
+#include <cmath>
 
 #include "game.h"
 #include "maze.h"
@@ -376,6 +377,86 @@ void testLevelData(int& failures) {
           failures);
 }
 
+// Checks real campaign setup, elapsed time, fuel, movement, memory and cleanup.
+void testCampaignHudState(int& failures) {
+    GameState game = createEmptyGame();
+    check("HUD empty game has no winner", game.winner == NO_WINNER, failures);
+    const Level& level = *getLevel(1);
+    startLevel(game, level, 10, false);
+    std::string names[1] = {"Player"};
+    CharacterId characters[1] = {KRUM};
+    createPlayers(game, 1, names, characters);
+    Player& player = game.players[0];
+    check("HUD campaign starts with level fuel and no elapsed time",
+          player.fuel == 40.0f && player.maxFuel == 40.0f && game.timeSeconds == 0.0f,
+          failures);
+    check("HUD starting torch reveals nearby cells only",
+          player.seen[0][0] && player.seen[0][3] && !player.seen[3][3], failures);
+    game.maze.cells[0][1].tile = FLOOR;
+    updateCampaign(game, RIGHT, 0.12f);
+    check("HUD campaign movement advances time and burns real fuel",
+          player.col == 1 && std::fabs(game.timeSeconds - 0.12f) < 0.001f &&
+              std::fabs(player.fuel - 39.94f) < 0.001f && player.seen[0][4], failures);
+    updateCampaign(game, -1, 1.0f);
+    check("HUD idle campaign still advances time and fuel",
+          player.col == 1 && std::fabs(game.timeSeconds - 1.12f) < 0.001f &&
+              std::fabs(player.fuel - 39.44f) < 0.001f, failures);
+    player.row = game.maze.size - 1;
+    player.col = game.maze.size - 2;
+    updateCampaign(game, RIGHT, 0.12f);
+    check("HUD exit ends the campaign", game.winner == 0, failures);
+    float finishTime = game.timeSeconds;
+    float finishFuel = player.fuel;
+    updateCampaign(game, -1, 2.0f);
+    check("HUD finish freezes the displayed result",
+          game.timeSeconds == finishTime && player.fuel == finishFuel, failures);
+    startLevel(game, *getLevel(9), 50, false);
+    characters[0] = ASPARUH;
+    createPlayers(game, 1, names, characters);
+    check("HUD restart replaces state and applies Asparuh fuel",
+          game.maze.size == 50 && game.timeSeconds == 0.0f && game.winner == NO_WINNER &&
+              game.players[0].maxFuel == 187.5f, failures);
+    updateCampaign(game, -1, 1.0f);
+    check("HUD cold campaign burns twice the normal fuel",
+          game.players[0].fuel == 186.5f, failures);
+    burnFuel(game.players[0], 1000.0f);
+    float outTime = game.timeSeconds;
+    updateCampaign(game, RIGHT, 1.0f);
+    check("HUD empty torch stops movement and time",
+          game.players[0].isOut && game.players[0].fuel == 0.0f &&
+              game.players[0].col == 0 && game.timeSeconds == outTime, failures);
+    destroyGame(game);
+    destroyGame(game);
+    check("HUD cleanup can run twice",
+          game.players == nullptr && game.playerCount == 0 && game.maze.cells == nullptr &&
+              game.maze.size == 0, failures);
+}
+
+// Checks the fuel thresholds used by the HUD and maze lighting.
+void testTorchState(int& failures) {
+    Player player = {};
+    player.character = KRUM;
+    player.maxFuel = 100.0f;
+    player.fuel = 100.0f;
+    check("T11 full torch lights three cells", getTorchRadius(player) == 3, failures);
+    player.fuel = 60.0f;
+    check("T11 sixty percent uses radius two", getTorchRadius(player) == 2, failures);
+    player.fuel = 30.0f;
+    check("T11 thirty percent uses radius two", getTorchRadius(player) == 2, failures);
+    player.fuel = 29.0f;
+    check("T11 low torch uses radius one", getTorchRadius(player) == 1, failures);
+    player.character = BORIS;
+    check("T11 Boris adds one radius cell", getTorchRadius(player) == 2, failures);
+    check("T11 light circle excludes diagonals beyond its radius",
+          isLit(player, 0, 2) && !isLit(player, 2, 2), failures);
+    burnFuel(player, -1.0f);
+    check("T12 negative fuel loss cannot add fuel", player.fuel == 29.0f, failures);
+    burnFuel(player, 100.0f);
+    check("T12 empty torch has no light, even for Boris",
+          player.fuel == 0.0f && player.isOut && getTorchRadius(player) == 0 &&
+              !isLit(player, 0, 0), failures);
+}
+
 // Prints the test summary and returns failure when any check fails.
 int main() {
 	int failures = 0;
@@ -388,6 +469,8 @@ int main() {
     testOutOfBoundsMovement(failures);
     testWallAndLegalMovement(failures);
     testLevelData(failures);
+    testCampaignHudState(failures);
+    testTorchState(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";

@@ -266,7 +266,8 @@ Vector2 getCameraOrigin(const Maze& maze, const Player& viewer) {
     float centerX = (viewer.col + 1.5f) * TILE_SIZE;
     float centerY = (viewer.row + 1.5f) * TILE_SIZE;
     return Vector2{getCameraAxis(centerX, worldSize, static_cast<float>(GetScreenWidth())),
-                   getCameraAxis(centerY, worldSize, static_cast<float>(GetScreenHeight()))};
+                   getCameraAxis(centerY, worldSize,
+                                 static_cast<float>(GetScreenHeight() - HUD_HEIGHT)) - HUD_HEIGHT};
 }
 
 // Draws a texture at TILE_SCALE with its top-left at (x, y), turned around its centre
@@ -619,6 +620,48 @@ void drawTorchLight(const GameState& game, const Player& viewer, const Textures&
     EndBlendMode();
 }
 
-void drawPlayer(const Player&, const Textures&) {}
+// Draws the selected hero at the same camera position and scale as the maze.
+void drawPlayer(const GameState& game, const Player& player, const Textures& textures) {
+    if (player.character < ASPARUH || player.character > LEVSKI) {
+        return;
+    }
+    int frame = static_cast<int>(GetTime() * 5.0) % HERO_FRAMES;
+    const Texture2D& sprite = textures.heroes[player.character].idle[frame];
+    if (sprite.id == 0) {
+        return;
+    }
+    Vector2 camera = getCameraOrigin(game.maze, player);
+    float width = static_cast<float>(sprite.width * TILE_SCALE);
+    float height = static_cast<float>(sprite.height * TILE_SCALE);
+    Rectangle source = {0.0f, 0.0f, static_cast<float>(sprite.width),
+                        static_cast<float>(sprite.height)};
+    Rectangle destination = {(player.col + 1.5f) * TILE_SIZE - camera.x - width / 2.0f,
+                             (player.row + 2.0f) * TILE_SIZE - camera.y - height,
+                             width, height};
+    DrawTexturePro(sprite, source, destination, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+}
 
-void drawHud(const GameState&, const Player&, const Textures&) {}
+// Draws the current fuel and elapsed campaign time above the maze.
+void drawHud(const GameState& game, const Player& viewer, const Textures&) {
+    float ratio = viewer.maxFuel > 0.0f ? viewer.fuel / viewer.maxFuel : 0.0f;
+    if (ratio < 0.0f) {
+        ratio = 0.0f;
+    } else if (ratio > 1.0f) {
+        ratio = 1.0f;
+    }
+    Color fuelColor = ratio < 0.3f ? RED : ORANGE;
+    DrawRectangle(0, 0, GetScreenWidth(), HUD_HEIGHT, Color{18, 14, 20, 255});
+    DrawText(TextFormat("Fuel: %.1f / %.1f (%d%%)", viewer.fuel, viewer.maxFuel,
+                        static_cast<int>(ratio * 100.0f)), 24, 14, 22, RAYWHITE);
+    DrawRectangle(24, 48, 300, 20, Color{50, 38, 34, 255});
+    DrawRectangle(24, 48, static_cast<int>(300.0f * ratio), 20, fuelColor);
+    DrawRectangleLines(24, 48, 300, 20, GOLD);
+    int seconds = game.timeSeconds > 0.0f ? static_cast<int>(game.timeSeconds) : 0;
+    DrawText(TextFormat("Time: %02d:%02d", seconds / 60, seconds % 60), 430, 22, 26,
+             RAYWHITE);
+    if (game.level != nullptr) {
+        DrawText(TextFormat("%s - %d", game.level->place.c_str(), game.level->year),
+                 720, 14, 22, GOLD);
+    }
+    DrawText("Arrow keys: move   Esc: menu", 720, 48, 20, RAYWHITE);
+}

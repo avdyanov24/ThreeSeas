@@ -17,6 +17,7 @@ const int DOOR_FRAMES = 4;
 const int DECAL_VARIANTS = 6;
 const int EXIT_FRAMES = 4;
 const int HERO_FRAMES = 4;
+const int HUD_HEIGHT = 88;
 
 // Every sprite of one hero. Left-facing is the side sprite mirrored in code.
 struct HeroTextures {
@@ -95,7 +96,7 @@ void drawMaze(const GameState& game, const Player& viewer, const Textures& textu
 void drawTorchLight(const GameState& game, const Player& viewer, const Textures& textures);
 
 // Draws the player's sprite on their cell.
-void drawPlayer(const Player& player, const Textures& textures);
+void drawPlayer(const GameState& game, const Player& player, const Textures& textures);
 
 // Draws the torch bar, the timer (campaign) or the name, turn and steps left
 // (multiplayer), the inventory, the place and year, and the hero portrait.

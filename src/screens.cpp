@@ -1,5 +1,7 @@
 #include "screens.h"
 
+#include "game.h"
+
 namespace {
 
 const int SCREEN_WIDTH = 1280;
@@ -74,10 +76,9 @@ int moveSelection(int selectedItem, int direction, int itemCount) {
     return (selectedItem + direction + itemCount) % itemCount;
 }
 
-// Provides the one campaign connection point for the future playable maze.
+// Opens the first playable campaign maze.
 Screen openCampaign() {
-    // Connect this destination to the Sprint 1 playable maze when it is ready.
-    return CAMPAIGN_MAP;
+    return PLAYING;
 }
 
 // Sets up the destination screen for a selected main-menu entry.
@@ -246,7 +247,7 @@ void drawBackScreen(Screen screen, const Textures& textures, const UiState& ui) 
 
 // Reads input and runs the logic of the current screen. Returns the screen to show
 // next (the same one if nothing changed). Never draws.
-Screen updateScreen(Screen screen, GameState&, UiState& ui, float) {
+Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime) {
     if (screen == TITLE) {
         if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE)) {
             ui.selectedItem = 0;
@@ -270,6 +271,26 @@ Screen updateScreen(Screen screen, GameState&, UiState& ui, float) {
         return TITLE;
     }
 
+    if (screen == PLAYING) {
+        if (IsKeyPressed(KEY_ESCAPE)) {
+            destroyGame(game);
+            ui.selectedItem = 0;
+            return MAIN_MENU;
+        }
+        int heldDirection = -1;
+        if (IsKeyDown(KEY_UP)) {
+            heldDirection = UP;
+        } else if (IsKeyDown(KEY_DOWN)) {
+            heldDirection = DOWN;
+        } else if (IsKeyDown(KEY_LEFT)) {
+            heldDirection = LEFT;
+        } else if (IsKeyDown(KEY_RIGHT)) {
+            heldDirection = RIGHT;
+        }
+        updateCampaign(game, heldDirection, deltaTime);
+        return PLAYING;
+    }
+
     if (screen == MAIN_MENU) {
         return updateMainMenu(ui);
     }
@@ -283,9 +304,23 @@ Screen updateScreen(Screen screen, GameState&, UiState& ui, float) {
 }
 
 // Draws the current screen. Never reads input or changes the game.
-void drawScreen(Screen screen, const GameState&, const UiState& ui, const Textures& textures) {
+void drawScreen(Screen screen, const GameState& game, const UiState& ui,
+                const Textures& textures) {
     if (screen == TITLE) {
         drawTitleScreen(textures, ui);
+    } else if (screen == PLAYING && game.players != nullptr && game.playerCount > 0) {
+        const Player& viewer = game.players[game.currentPlayer];
+        BeginScissorMode(0, HUD_HEIGHT, GetScreenWidth(), GetScreenHeight() - HUD_HEIGHT);
+        drawMaze(game, viewer, textures);
+        drawTorchLight(game, viewer, textures);
+        drawPlayer(game, viewer, textures);
+        EndScissorMode();
+        drawHud(game, viewer, textures);
+        if (viewer.isOut || game.winner == 0) {
+            DrawText(viewer.isOut ? "Your torch went out" : "Maze complete!", 430, 320, 30,
+                     GOLD);
+            DrawText("Press Esc to return to the menu", 400, 364, 24, RAYWHITE);
+        }
     } else if (screen == MAIN_MENU) {
         drawMainMenu(textures, ui);
     } else if (screen == CAMPAIGN_MAP || screen == MP_SETUP || screen == LEADERBOARD ||
