@@ -1,5 +1,9 @@
 #include "raylib.h"
 #include "game.h"
+#include "levels.h"
+
+#include <cstdlib>
+#include <ctime>
 #include "screens.h"
 
 // Opens the game window and runs the screen state machine.
@@ -10,13 +14,21 @@ int main() {
 
     GameState game = createEmptyGame();
     UiState ui = {};
-    Textures textures = {};
+    srand(static_cast<unsigned int>(time(nullptr)));
+    Textures textures = loadTextures(*getLevel(1));
     loadUiTextures(textures);
     Screen screen = TITLE;
 
     while (!WindowShouldClose() && !ui.isExitRequested) {
         float deltaTime = GetFrameTime();
+        Screen previousScreen = screen;
         screen = updateScreen(screen, game, ui, deltaTime);
+        if (screen == PLAYING && previousScreen != PLAYING) {
+            startLevel(game, *getLevel(1), MIN_CAMPAIGN_SIZE, false);
+            std::string names[1] = {ui.playerName};
+            CharacterId characters[1] = {KRUM};
+            createPlayers(game, 1, names, characters);
+        }
 
         if (ui.isExitRequested) {
             break;
