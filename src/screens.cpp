@@ -317,8 +317,11 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
         EndScissorMode();
         drawHud(game, viewer, textures);
         if (viewer.isOut || game.winner == 0) {
-            DrawText(viewer.isOut ? "Your torch went out" : "Maze complete!", 430, 320, 30,
-                     GOLD);
+            const char* message = "Maze complete!";
+            if (viewer.isOut) {
+                message = "Your torch went out";
+            }
+            DrawText(message, 430, 320, 30, GOLD);
             DrawText("Press Esc to return to the menu", 400, 364, 24, RAYWHITE);
         }
     } else if (screen == MAIN_MENU) {

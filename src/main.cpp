@@ -1,9 +1,10 @@
 #include "raylib.h"
-#include "game.h"
-#include "levels.h"
 
 #include <cstdlib>
 #include <ctime>
+
+#include "game.h"
+#include "levels.h"
 #include "screens.h"
 
 // Opens the game window and runs the screen state machine.

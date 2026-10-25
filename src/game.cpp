@@ -38,13 +38,18 @@ void createPlayers(GameState& game, int count, const std::string names[],
         Player& player = game.players[i];
         player.name = names[i];
         player.character = characters[i];
-        float factor = game.isMultiplayer ? 2.0f : game.level->fuelFactor;
-        player.maxFuel = game.maze.size * factor;
+        float fuelFactor = 2.0f;
+        if (!game.isMultiplayer) {
+            fuelFactor = game.level->fuelFactor;
+        }
+        player.maxFuel = game.maze.size * fuelFactor;
         if (player.character == ASPARUH) {
             player.maxFuel *= 1.5f;
         }
         player.fuel = player.maxFuel;
-        player.traps = game.isMultiplayer ? 1 : 0;
+        if (game.isMultiplayer) {
+            player.traps = 1;
+        }
         player.seen = new bool*[game.maze.size];
         for (int row = 0; row < game.maze.size; row++) {
             player.seen[row] = new bool[game.maze.size]{};
@@ -115,15 +120,23 @@ void updateCampaign(GameState& game, int heldDirection, float deltaTime) {
     if (player.isOut) {
         return;
     }
-    float oldTime = game.timeSeconds;
+    float previousTime = game.timeSeconds;
     game.timeSeconds += deltaTime;
-    burnFuel(player, deltaTime * (game.level->isCold ? 1.0f : 0.5f));
+    float fuelPerSecond = 0.5f;
+    if (game.level->isCold) {
+        fuelPerSecond = 1.0f;
+    }
+    burnFuel(player, deltaTime * fuelPerSecond);
     if (player.isOut) {
         return;
     }
-    float interval = game.maze.cells[player.row][player.col].tile == WATER ? 0.24f : 0.12f;
-    if (heldDirection >= UP && heldDirection <= RIGHT &&
-        static_cast<int>(oldTime / interval) != static_cast<int>(game.timeSeconds / interval)) {
+    float movementInterval = 0.12f;
+    if (game.maze.cells[player.row][player.col].tile == WATER) {
+        movementInterval = 0.24f;
+    }
+    int previousStep = static_cast<int>(previousTime / movementInterval);
+    int currentStep = static_cast<int>(game.timeSeconds / movementInterval);
+    if (heldDirection >= UP && heldDirection <= RIGHT && previousStep != currentStep) {
         tryMove(game.maze, player, static_cast<Direction>(heldDirection));
         updateSeen(game.maze, player);
         if (hasReachedExit(game.maze, player)) {
@@ -149,9 +162,17 @@ int getTorchRadius(const Player& player) {
     if (player.isOut || player.fuel <= 0.0f || player.maxFuel <= 0.0f) {
         return 0;
     }
-    float ratio = player.fuel / player.maxFuel;
-    int radius = ratio > 0.6f ? 3 : (ratio >= 0.3f ? 2 : 1);
-    return radius + (player.character == BORIS ? 1 : 0);
+    float fuelRatio = player.fuel / player.maxFuel;
+    int radius = 1;
+    if (fuelRatio > 0.6f) {
+        radius = 3;
+    } else if (fuelRatio >= 0.3f) {
+        radius = 2;
+    }
+    if (player.character == BORIS) {
+        radius++;
+    }
+    return radius;
 }
 
 // Returns whether a cell lies in the player's burning torch circle.
