@@ -643,20 +643,29 @@ void drawPlayer(const GameState& game, const Player& player, const Textures& tex
 
 // Draws the current fuel and elapsed campaign time above the maze.
 void drawHud(const GameState& game, const Player& viewer, const Textures&) {
-    float ratio = viewer.maxFuel > 0.0f ? viewer.fuel / viewer.maxFuel : 0.0f;
-    if (ratio < 0.0f) {
-        ratio = 0.0f;
-    } else if (ratio > 1.0f) {
-        ratio = 1.0f;
+    float fuelRatio = 0.0f;
+    if (viewer.maxFuel > 0.0f) {
+        fuelRatio = viewer.fuel / viewer.maxFuel;
     }
-    Color fuelColor = ratio < 0.3f ? RED : ORANGE;
+    if (fuelRatio < 0.0f) {
+        fuelRatio = 0.0f;
+    } else if (fuelRatio > 1.0f) {
+        fuelRatio = 1.0f;
+    }
+    Color fuelColor = ORANGE;
+    if (fuelRatio < 0.3f) {
+        fuelColor = RED;
+    }
     DrawRectangle(0, 0, GetScreenWidth(), HUD_HEIGHT, Color{18, 14, 20, 255});
     DrawText(TextFormat("Fuel: %.1f / %.1f (%d%%)", viewer.fuel, viewer.maxFuel,
-                        static_cast<int>(ratio * 100.0f)), 24, 14, 22, RAYWHITE);
+                        static_cast<int>(fuelRatio * 100.0f)), 24, 14, 22, RAYWHITE);
     DrawRectangle(24, 48, 300, 20, Color{50, 38, 34, 255});
-    DrawRectangle(24, 48, static_cast<int>(300.0f * ratio), 20, fuelColor);
+    DrawRectangle(24, 48, static_cast<int>(300.0f * fuelRatio), 20, fuelColor);
     DrawRectangleLines(24, 48, 300, 20, GOLD);
-    int seconds = game.timeSeconds > 0.0f ? static_cast<int>(game.timeSeconds) : 0;
+    int seconds = 0;
+    if (game.timeSeconds > 0.0f) {
+        seconds = static_cast<int>(game.timeSeconds);
+    }
     DrawText(TextFormat("Time: %02d:%02d", seconds / 60, seconds % 60), 430, 22, 26,
              RAYWHITE);
     if (game.level != nullptr) {
