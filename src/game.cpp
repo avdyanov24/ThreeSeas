@@ -1,5 +1,7 @@
 #include "game.h"
 
+#include "maze.h"
+
 GameState createEmptyGame() { return GameState{}; }
 
 void destroyGame(GameState&) {}
@@ -10,9 +12,40 @@ void createPlayers(GameState&, int, const std::string[], const CharacterId[]) {}
 
 void destroyPlayers(GameState&) {}
 
-bool canEnter(const Maze&, const Player&, int, int) { return false; }
+// Returns whether the player can enter the specified maze cell.
+bool canEnter(const Maze& maze, const Player& player, int row, int col) {
+    if (!isInside(maze, row, col)) {
+        return false;
+    }
 
-bool tryMove(Maze&, Player&, Direction) { return false; }
+    const Tile tile = maze.cells[row][col].tile;
+    if (tile == WALL) {
+        return false;
+    }
+
+    if (tile == DOOR && !player.hasKey && player.character != IVAN_ASEN) {
+        return false;
+    }
+
+    return true;
+}
+
+// Moves the player one cell if the destination is valid; otherwise leaves position unchanged.
+bool tryMove(Maze& maze, Player& player, Direction direction) {
+    if (direction != UP && direction != DOWN && direction != LEFT && direction != RIGHT) {
+        return false;
+    }
+
+    const int nextRow = player.row + rowStep(direction);
+    const int nextCol = player.col + colStep(direction);
+    if (!canEnter(maze, player, nextRow, nextCol)) {
+        return false;
+    }
+
+    player.row = nextRow;
+    player.col = nextCol;
+    return true;
+}
 
 int getStepCost(const Maze&, int, int) { return 0; }
 
