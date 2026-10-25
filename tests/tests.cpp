@@ -3,6 +3,7 @@
 #include <string>
 #include <cstdlib>
 
+#include "game.h"
 #include "maze.h"
 #include "levels.h"
 #include "validation.h"
@@ -67,6 +68,17 @@ bool canReachExit(const Maze& maze) {
     }
 
     return false;
+}
+
+// Allocates a small maze for movement tests and makes every cell a floor.
+Maze createMovementTestMaze() {
+    Maze maze = createMaze(5);
+    for (int row = 0; row < maze.size; row++) {
+        for (int col = 0; col < maze.size; col++) {
+            maze.cells[row][col].tile = FLOOR;
+        }
+    }
+    return maze;
 }
 
 // Checks campaign and multiplayer maze size limits; returns nothing.
@@ -164,6 +176,61 @@ void testExitIsReachable(int& failures) {
         check(sizeLabel + " exit is reachable", canReachExit(maze), failures);
         destroyMaze(maze);
     }
+}
+
+// Checks that moves out of each maze edge fail without moving the player.
+void testOutOfBoundsMovement(int& failures) {
+    Maze maze = createMovementTestMaze();
+
+    Player player{};
+    player.row = 0;
+    player.col = 2;
+    check("T07 top edge cell is floor", maze.cells[player.row][player.col].tile == FLOOR, failures);
+    check("T07 moving up from top edge is rejected", !tryMove(maze, player, UP), failures);
+    check("T07 top edge position is unchanged", player.row == 0 && player.col == 2, failures);
+
+    player.row = 4;
+    player.col = 2;
+    check("T07 bottom edge cell is floor",
+          maze.cells[player.row][player.col].tile == FLOOR, failures);
+    check("T07 moving down from bottom edge is rejected", !tryMove(maze, player, DOWN), failures);
+    check("T07 bottom edge position is unchanged", player.row == 4 && player.col == 2, failures);
+
+    player.row = 2;
+    player.col = 0;
+    check("T07 left edge cell is floor", maze.cells[player.row][player.col].tile == FLOOR, failures);
+    check("T07 moving left from left edge is rejected", !tryMove(maze, player, LEFT), failures);
+    check("T07 left edge position is unchanged", player.row == 2 && player.col == 0, failures);
+
+    player.row = 2;
+    player.col = 4;
+    check("T07 right edge cell is floor",
+          maze.cells[player.row][player.col].tile == FLOOR, failures);
+    check("T07 moving right from right edge is rejected", !tryMove(maze, player, RIGHT), failures);
+    check("T07 right edge position is unchanged", player.row == 2 && player.col == 4, failures);
+
+    destroyMaze(maze);
+}
+
+// Checks that wall moves fail unchanged and a legal move succeeds by one cell.
+void testWallAndLegalMovement(int& failures) {
+    Maze maze = createMovementTestMaze();
+    maze.cells[2][2].tile = WALL;
+
+    Player player{};
+    player.row = 2;
+    player.col = 1;
+    check("T08 target cell is a wall", maze.cells[2][2].tile == WALL, failures);
+    check("T08 moving into a wall is rejected", !tryMove(maze, player, RIGHT), failures);
+    check("T08 wall move leaves the position unchanged",
+          player.row == 2 && player.col == 1, failures);
+
+    check("T08 legal target cell is floor", maze.cells[1][1].tile == FLOOR, failures);
+    check("T08 moving to an adjacent floor succeeds", tryMove(maze, player, UP), failures);
+    check("T08 legal move changes only the row by one",
+          player.row == 1 && player.col == 1, failures);
+
+    destroyMaze(maze);
 }
 
 // Checks every field in the nine level records and getLevel's boundary behavior.
@@ -318,6 +385,8 @@ int main() {
     testMazeSize(failures);
     testStartAndExitAreFloor(failures);
     testExitIsReachable(failures);
+    testOutOfBoundsMovement(failures);
+    testWallAndLegalMovement(failures);
     testLevelData(failures);
 
 	if (failures == 0) {
