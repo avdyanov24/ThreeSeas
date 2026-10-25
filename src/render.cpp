@@ -179,8 +179,26 @@ Textures loadTextures(const Level& level) {
     return textures;
 }
 
+// Loads the title and main-menu art with nearest-neighbour filtering.
+void loadUiTextures(Textures& textures) {
+    std::string art = ART_DIR;
+    textures.titleScreen =
+        loadPixelTexture(art + "/07_screens/title/title_screen.png");
+    textures.menuBackground = loadPixelTexture(art + "/01_ui/backgrounds/menu_background.png");
+    textures.menuLogo = loadPixelTexture(art + "/01_ui/logo/three_seas_logo.png");
+    textures.buttonNormal =
+        loadPixelTexture(art + "/01_ui/buttons/ui_button_normal.png");
+    textures.buttonHover =
+        loadPixelTexture(art + "/01_ui/buttons/ui_button_hover.png");
+}
+
 // Frees every texture
 void unloadTextures(Textures& textures) {
+    unloadOne(textures.titleScreen);
+    unloadOne(textures.menuBackground);
+    unloadOne(textures.menuLogo);
+    unloadOne(textures.buttonNormal);
+    unloadOne(textures.buttonHover);
     unloadMany(textures.floors, FLOOR_VARIANTS);
     unloadMany(textures.wallTops, WALL_TOP_VARIANTS);
     unloadMany(textures.wallFaces, WALL_FACE_VARIANTS);

@@ -145,6 +145,8 @@ struct UiState {
     std::string typedText;     // what is being typed in the current input
     std::string errorMessage;  // shown in red under the input, empty if none
     int selectedItem;          // highlighted menu entry
+    bool isMouseActive;
+    bool isExitRequested;
     int selectedEra;           // 1 to 3
     int selectedLevel;         // 1 to 9
     int chosenSize;            // maze size chosen on the level intro / MP setup

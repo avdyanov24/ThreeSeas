@@ -11,11 +11,16 @@ int main() {
     GameState game = createEmptyGame();
     UiState ui = {};
     Textures textures = {};
+    loadUiTextures(textures);
     Screen screen = TITLE;
 
-    while (!WindowShouldClose()) {
+    while (!WindowShouldClose() && !ui.isExitRequested) {
         float deltaTime = GetFrameTime();
         screen = updateScreen(screen, game, ui, deltaTime);
+
+        if (ui.isExitRequested) {
+            break;
+        }
 
         BeginDrawing();
         ClearBackground(BLACK);
@@ -24,6 +29,7 @@ int main() {
     }
 
     destroyGame(game);
+    unloadTextures(textures);
     CloseWindow();
     return 0;
 }
