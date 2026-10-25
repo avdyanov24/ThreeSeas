@@ -36,6 +36,11 @@ struct HeroTextures {
 // for each wall decoration that gives light, such as a torch. The liquid is water on
 // most levels and ice on Shipka; levels without it leave those textures empty.
 struct Textures {
+    Texture2D titleScreen;
+    Texture2D menuBackground;
+    Texture2D menuLogo;
+    Texture2D buttonNormal;
+    Texture2D buttonHover;
     Texture2D floors[FLOOR_VARIANTS];
     int floorWeights[FLOOR_VARIANTS];
     Texture2D wallTops[WALL_TOP_VARIANTS];
@@ -66,6 +71,9 @@ struct Textures {
 // pixels stay sharp. Call it once after the window is open. A file that cannot be
 // loaded leaves an empty texture (id 0) and raylib logs a warning.
 Textures loadTextures(const Level& level);
+
+// Loads the supplied title, menu, logo, and button art after the window is open.
+void loadUiTextures(Textures& textures);
 
 // Frees every texture. Call it before the window closes.
 void unloadTextures(Textures& textures);
