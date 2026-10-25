@@ -4,6 +4,7 @@
 #include <cstdlib>
 
 #include "maze.h"
+#include "levels.h"
 #include "validation.h"
 
 // Prints a test result and increments failures when the test did not pass; returns nothing.
@@ -165,6 +166,149 @@ void testExitIsReachable(int& failures) {
     }
 }
 
+// Checks every field in the nine level records and getLevel's boundary behavior.
+void testLevelData(int& failures) {
+    static const Level expectedLevels[] = {
+        {1,
+         "Pliska",
+         "First Bulgarian State",
+         "Pliska was Bulgaria's first capital, from 681 until 893.",
+         681,
+         1,
+         4.0f,
+         3.0f,
+         0.0f,
+         0,
+         false,
+         false},
+        {2,
+         "Varbitsa Pass",
+         "First Bulgarian State",
+         "In 811 Khan Krum trapped the Byzantine army here. Legend says he turned the emperor's skull "
+         "into a silver cup.",
+         811,
+         2,
+         3.5f,
+         2.0f,
+         2.0f,
+         0,
+         false,
+         false},
+        {3,
+         "Preslav",
+         "First Bulgarian State",
+         "Under Simeon, Preslav became the heart of Bulgaria's Golden Age of books and learning.",
+         893,
+         3,
+         3.0f,
+         1.5f,
+         1.0f,
+         3,
+         false,
+         false},
+        {4,
+         "Tarnovo",
+         "Second Bulgarian State",
+         "In 1185 the brothers Asen and Peter rose up in Tarnovo and brought Bulgaria back to life.",
+         1185,
+         1,
+         3.75f,
+         3.0f,
+         0.0f,
+         2,
+         false,
+         false},
+        {5,
+         "Cherven",
+         "Second Bulgarian State",
+         "Cherven sat on a cliff above a river canyon. It had more medieval church inscriptions than "
+         "the capital Tarnovo.",
+         0,
+         2,
+         3.25f,
+         2.0f,
+         0.0f,
+         0,
+         true,
+         false},
+        {6,
+         "Klokotnitsa",
+         "Second Bulgarian State",
+         "At Klokotnitsa in 1230, Ivan Asen II rode into battle with the broken peace treaty on his "
+         "spear.",
+         1230,
+         3,
+         2.75f,
+         1.5f,
+         2.0f,
+         3,
+         true,
+         false},
+        {7,
+         "Koprivshtitsa",
+         "Road to Liberation",
+         "The first shot of the April Uprising was fired at a bridge in Koprivshtitsa on 20 April 1876.",
+         1876,
+         1,
+         3.5f,
+         2.5f,
+         1.0f,
+         2,
+         false,
+         false},
+        {8,
+         "Plovdiv",
+         "Road to Liberation",
+         "On 6 September 1885 Bulgaria was united again, starting in Plovdiv.",
+         1885,
+         2,
+         3.0f,
+         2.0f,
+         0.0f,
+         2,
+         true,
+         false},
+        {9,
+         "Shipka",
+         "Road to Liberation",
+         "In 1877 Bulgarian volunteers held Shipka against a far bigger army, then survived a frozen "
+         "winter on the peak.",
+         1877,
+         3,
+         2.5f,
+         1.5f,
+         2.0f,
+         3,
+         true,
+         true}};
+
+    for (int i = 0; i < LEVEL_COUNT; i++) {
+        const Level* actual = getLevel(i + 1);
+        const Level& expected = expectedLevels[i];
+        const bool matches = actual != nullptr && actual->id == expected.id &&
+                             actual->place == expected.place && actual->era == expected.era &&
+                             actual->funFact == expected.funFact && actual->year == expected.year &&
+                             actual->difficulty == expected.difficulty &&
+                             actual->fuelFactor == expected.fuelFactor &&
+                             actual->oilPer100 == expected.oilPer100 &&
+                             actual->trapsPer100 == expected.trapsPer100 &&
+                             actual->doors == expected.doors &&
+                             actual->hasWater == expected.hasWater &&
+                             actual->isCold == expected.isCold;
+        check("T21 level record " + std::to_string(i + 1) + " matches", matches, failures);
+    }
+
+    const Level* firstLevel = getLevel(1);
+    const Level* lastLevel = getLevel(LEVEL_COUNT);
+    check("T21 invalid ids return nullptr",
+          getLevel(-1) == nullptr && getLevel(0) == nullptr && getLevel(LEVEL_COUNT + 1) == nullptr,
+          failures);
+    check("T21 returned pointers remain valid",
+          firstLevel != nullptr && lastLevel != nullptr && firstLevel->place == "Pliska" &&
+              lastLevel->place == "Shipka",
+          failures);
+}
+
 // Prints the test summary and returns failure when any check fails.
 int main() {
 	int failures = 0;
@@ -174,6 +318,7 @@ int main() {
     testMazeSize(failures);
     testStartAndExitAreFloor(failures);
     testExitIsReachable(failures);
+    testLevelData(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";
