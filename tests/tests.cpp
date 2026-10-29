@@ -457,6 +457,87 @@ void testTorchState(int& failures) {
               !isLit(player, 0, 0), failures);
 }
 
+// Checks door access for a player without a key, with a key, and IVAN_ASEN.
+void testDoorAccess(int& failures) {
+    Maze maze = createMovementTestMaze();
+    maze.cells[2][2].tile = DOOR;
+
+    Player withoutKey{};
+    Player withKey{};
+    withKey.hasKey = true;
+    Player ivanAsen{};
+    ivanAsen.character = IVAN_ASEN;
+
+    check("T09 player without a key cannot enter a door",
+          !canEnter(maze, withoutKey, 2, 2), failures);
+    check("T09 player with a key can enter a door", canEnter(maze, withKey, 2, 2), failures);
+    check("T09 IVAN_ASEN can enter a door without a key",
+          canEnter(maze, ivanAsen, 2, 2), failures);
+
+    destroyMaze(maze);
+}
+
+// Checks oil refills 25% of maximum fuel and caps fuel at the maximum.
+void testOilRefill(int& failures) {
+    GameState game = createEmptyGame();
+    game.maze = createMovementTestMaze();
+
+    Player player{};
+    player.row = 0;
+    player.col = 0;
+    player.maxFuel = 100.0f;
+    player.fuel = 50.0f;
+    game.maze.cells[0][0].item = OIL;
+    pickUpItem(game, player);
+    check("T10 oil adds 25 fuel", player.fuel == 75.0f, failures);
+    check("T10 oil item is removed", game.maze.cells[0][0].item == NO_ITEM, failures);
+
+    game.maze.cells[0][0].item = OIL;
+    player.fuel = 90.0f;
+    pickUpItem(game, player);
+    check("T10 oil refill does not exceed maximum fuel", player.fuel == 100.0f, failures);
+
+    destroyMaze(game.maze);
+}
+
+// Checks torch radius at three fuel levels for a normal player and BORIS.
+void testTorchRadius(int& failures) {
+    Player player{};
+    player.character = KRUM;
+    player.maxFuel = 100.0f;
+    player.fuel = 100.0f;
+    check("T11 normal player at 100 fuel has radius 3", getTorchRadius(player) == 3, failures);
+    player.fuel = 50.0f;
+    check("T11 normal player at 50 fuel has radius 2", getTorchRadius(player) == 2, failures);
+    player.fuel = 10.0f;
+    check("T11 normal player at 10 fuel has radius 1", getTorchRadius(player) == 1, failures);
+
+    player.character = BORIS;
+    player.fuel = 100.0f;
+    check("T11 BORIS at 100 fuel has radius 4", getTorchRadius(player) == 4, failures);
+    player.fuel = 50.0f;
+    check("T11 BORIS at 50 fuel has radius 3", getTorchRadius(player) == 3, failures);
+    player.fuel = 10.0f;
+    check("T11 BORIS at 10 fuel has radius 2", getTorchRadius(player) == 2, failures);
+}
+
+// Checks that burning the last fuel sets the torch-out state.
+void testTorchOut(int& failures) {
+    Player player{};
+    player.fuel = 1.0f;
+    player.maxFuel = 100.0f;
+    burnFuel(player, 1.0f);
+    check("T12 burning the last fuel sets fuel to zero", player.fuel == 0.0f, failures);
+    check("T12 burning the last fuel sets torch out", player.isOut, failures);
+}
+
+// Checks campaign star ratings at the three documented time thresholds.
+void testCampaignStars(int& failures) {
+    check("T15 size 10 at 40 seconds earns 3 stars", calculateStars(10, 40.0f) == 3, failures);
+    check("T15 size 10 at 70 seconds earns 2 stars", calculateStars(10, 70.0f) == 2, failures);
+    check("T15 size 10 at 71 seconds earns 1 star", calculateStars(10, 71.0f) == 1, failures);
+}
+
 // Prints the test summary and returns failure when any check fails.
 int main() {
 	int failures = 0;
@@ -471,6 +552,11 @@ int main() {
     testLevelData(failures);
     testCampaignHudState(failures);
     testTorchState(failures);
+    testDoorAccess(failures);
+    testOilRefill(failures);
+    testTorchRadius(failures);
+    testTorchOut(failures);
+    testCampaignStars(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";
