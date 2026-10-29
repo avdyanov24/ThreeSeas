@@ -254,7 +254,28 @@ void pickUpItem(GameState& game, Player& player) {
     }
 }
 
-void useMap(const Maze&, Player&) {}
+// Reveals cells around the player and uses one map.
+void useMap(const Maze& maze, Player& player) {
+    if (player.maps <= 0 || player.seen == nullptr) {
+        return;
+    }
+
+    int radius = 4;
+    if (player.character == SIMEON) {
+        radius = 8;
+    }
+    int radiusSquared = radius * radius;
+    for (int row = 0; row < maze.size; row++) {
+        for (int col = 0; col < maze.size; col++) {
+            int rowDistance = row - player.row;
+            int colDistance = col - player.col;
+            if (rowDistance * rowDistance + colDistance * colDistance <= radiusSquared) {
+                player.seen[row][col] = true;
+            }
+        }
+    }
+    player.maps--;
+}
 
 bool placeTrap(Maze&, Player&, int) { return false; }
 
