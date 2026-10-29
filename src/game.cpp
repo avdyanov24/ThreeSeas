@@ -130,6 +130,13 @@ void updateCampaign(GameState& game, int heldDirection, float deltaTime) {
     if (player.isOut) {
         return;
     }
+    if (player.stuckSeconds > 0.0f) {
+        player.stuckSeconds -= deltaTime;
+        if (player.stuckSeconds < 0.0f) {
+            player.stuckSeconds = 0.0f;
+        }
+        return;
+    }
     float movementInterval = 0.12f;
     if (game.maze.cells[player.row][player.col].tile == WATER) {
         movementInterval = 0.24f;
@@ -137,10 +144,12 @@ void updateCampaign(GameState& game, int heldDirection, float deltaTime) {
     int previousStep = static_cast<int>(previousTime / movementInterval);
     int currentStep = static_cast<int>(game.timeSeconds / movementInterval);
     if (heldDirection >= UP && heldDirection <= RIGHT && previousStep != currentStep) {
-        tryMove(game.maze, player, static_cast<Direction>(heldDirection));
-        updateSeen(game.maze, player);
-        if (hasReachedExit(game.maze, player)) {
-            game.winner = 0;
+        if (tryMove(game.maze, player, static_cast<Direction>(heldDirection))) {
+            pickUpItem(game, player);
+            updateSeen(game.maze, player);
+            if (hasReachedExit(game.maze, player)) {
+                game.winner = 0;
+            }
         }
     }
 }
@@ -200,7 +209,50 @@ void updateSeen(const Maze& maze, Player& player) {
     }
 }
 
-void pickUpItem(GameState&, Player&) {}
+// Collects the cell's item and applies any hidden trap on the cell.
+void pickUpItem(GameState& game, Player& player) {
+    Cell& cell = game.maze.cells[player.row][player.col];
+    switch (cell.item) {
+        case OIL:
+            player.fuel += player.maxFuel * 0.25f;
+            if (player.fuel > player.maxFuel) {
+                player.fuel = player.maxFuel;
+            }
+            break;
+        case MAP_ITEM:
+            player.maps++;
+            break;
+        case KEY:
+            player.hasKey = true;
+            break;
+        case TRAP_ITEM:
+            player.traps++;
+            break;
+        case NO_ITEM:
+            break;
+    }
+    if (cell.item != NO_ITEM) {
+        cell.item = NO_ITEM;
+    }
+
+    if (cell.trapOwner != NO_TRAP) {
+        int playerIndex = -1;
+        for (int i = 0; i < game.playerCount; i++) {
+            if (&game.players[i] == &player) {
+                playerIndex = i;
+                break;
+            }
+        }
+        if (player.character != LEVSKI && cell.trapOwner != playerIndex) {
+            if (game.isMultiplayer) {
+                player.turnsToSkip = 1;
+            } else {
+                player.stuckSeconds = 2.0f;
+            }
+            cell.trapOwner = NO_TRAP;
+        }
+    }
+}
 
 void useMap(const Maze&, Player&) {}
 
