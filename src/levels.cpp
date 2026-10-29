@@ -125,10 +125,45 @@ const Level* getLevel(int id) {
 
 const Arena* getArena(int) { return nullptr; }
 
-const Character* getCharacter(CharacterId) { return nullptr; }
+// Returns the character with the given id, or nullptr when the id is out of range.
+const Character* getCharacter(CharacterId id) {
+    static const Character characters[CHARACTER_COUNT] = {
+        {ASPARUH, "Khan Asparuh", 1, "Starts with +50% fuel"},
+        {KRUM, "Khan Krum", 1, "Sees all traps"},
+        {BORIS, "Knyaz Boris I", 1, "Torch radius +1"},
+        {SIMEON, "Tsar Simeon", 1, "Maps reveal double the area"},
+        {IVAN_ASEN, "Tsar Ivan Asen II", 2, "Opens doors without a key"},
+        {LEVSKI, "Vasil Levski", 3, "Immune to traps"}};
 
-bool isLevelUnlocked(int, bool, bool) { return false; }
+    int characterIndex = static_cast<int>(id);
+    if (characterIndex < 0 || characterIndex >= CHARACTER_COUNT) {
+        return nullptr;
+    }
 
-bool isCharacterUnlocked(CharacterId, int, bool) { return false; }
+    return &characters[characterIndex];
+}
+
+// Returns whether a level is open based on progress or Free Play.
+bool isLevelUnlocked(int levelId, bool hasResultForPreviousLevel, bool isFreePlay) {
+    if (levelId < 1 || levelId > LEVEL_COUNT) {
+        return false;
+    }
+    if (isFreePlay || levelId == 1) {
+        return true;
+    }
+    return hasResultForPreviousLevel;
+}
+
+// Returns whether a valid character is open based on era progress or Free Play.
+bool isCharacterUnlocked(CharacterId id, int highestEraEntered, bool isFreePlay) {
+    const Character* character = getCharacter(id);
+    if (character == nullptr) {
+        return false;
+    }
+    if (isFreePlay) {
+        return true;
+    }
+    return highestEraEntered >= character->era;
+}
 
 bool isArenaUnlocked(int, int, bool) { return false; }
