@@ -212,7 +212,16 @@ bool hasReachedExit(const Maze& maze, const Player& player) {
            maze.cells[player.row][player.col].tile == EXIT;
 }
 
-int calculateStars(int, float) { return 0; }
+// Returns 3, 2, or 1 star based on completion time.
+int calculateStars(int size, float seconds) {
+    if (seconds <= size * 4) {
+        return 3;
+    }
+    if (seconds <= size * 7) {
+        return 2;
+    }
+    return 1;
+}
 
 void nextTurn(GameState&) {}
 
