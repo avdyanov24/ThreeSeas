@@ -353,6 +353,9 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
         } else if (IsKeyDown(KEY_RIGHT)) {
             heldDirection = RIGHT;
         }
+        if (IsKeyPressed(KEY_M)) {
+            useMap(game.maze, game.players[0]);
+        }
         updateCampaign(game, heldDirection, deltaTime);
         return checkLevelEnd(game, ui);
     }
