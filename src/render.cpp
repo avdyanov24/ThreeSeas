@@ -641,8 +641,8 @@ void drawPlayer(const GameState& game, const Player& player, const Textures& tex
     DrawTexturePro(sprite, source, destination, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
 }
 
-// Draws the current fuel and elapsed campaign time above the maze.
-void drawHud(const GameState& game, const Player& viewer, const Textures&) {
+// Draws the fuel bar, timer, inventory, place and year, and the hero portrait above the maze.
+void drawHud(const GameState& game, const Player& viewer, const Textures& textures) {
     float fuelRatio = 0.0f;
     if (viewer.maxFuel > 0.0f) {
         fuelRatio = viewer.fuel / viewer.maxFuel;
@@ -672,5 +672,20 @@ void drawHud(const GameState& game, const Player& viewer, const Textures&) {
         DrawText(TextFormat("%s - %d", game.level->place.c_str(), game.level->year),
                  720, 14, 22, GOLD);
     }
-    DrawText("Arrow keys: move   Esc: menu", 720, 48, 20, RAYWHITE);
+    DrawText(TextFormat("Map x %d", viewer.maps), 430, 58, 20, RAYWHITE);
+    if (viewer.hasKey) {
+        DrawText("Key", 540, 58, 20, GOLD);
+    }
+    DrawText("Arrow keys: move   M: map   Esc: back", 720, 48, 20, RAYWHITE);
+    if (viewer.character >= ASPARUH && viewer.character <= LEVSKI) {
+        const Texture2D& portrait = textures.heroes[viewer.character].portrait;
+        if (portrait.id != 0) {
+            Rectangle source = {0.0f, 0.0f, static_cast<float>(portrait.width),
+                                static_cast<float>(portrait.height)};
+            // Half size keeps the pixels sharp and fits inside the HUD
+            Rectangle destination = {static_cast<float>(GetScreenWidth() - 76), 12.0f, 64.0f,
+                                     64.0f};
+            DrawTexturePro(portrait, source, destination, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+        }
+    }
 }
