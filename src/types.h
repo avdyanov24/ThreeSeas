@@ -145,6 +145,8 @@ struct UiState {
     std::string typedText;     // what is being typed in the current input
     std::string errorMessage;  // shown in red under the input, empty if none
     int selectedItem;          // highlighted menu entry
+    float resultSeconds;       // time of the level that just ended
+    int resultStars;           // stars of the level that just ended, 0 when the torch went out
     bool isMouseActive;
     bool isExitRequested;
     int selectedEra;           // 1 to 3

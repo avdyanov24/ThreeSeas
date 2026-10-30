@@ -1,6 +1,8 @@
 #include "screens.h"
 
 #include "game.h"
+#include "save.h"
+#include "validation.h"
 
 namespace {
 
@@ -243,6 +245,70 @@ void drawBackScreen(Screen screen, const Textures& textures, const UiState& ui) 
                     ui.selectedItem == 0, false, textures);
 }
 
+// Ends the level when the exit was reached or the torch went out. A win is saved with
+// its stars. Returns RESULT when the level is over, otherwise PLAYING.
+Screen checkLevelEnd(const GameState& game, UiState& ui) {
+    bool isWin = game.winner == 0;
+    if (!isWin && !game.players[0].isOut) {
+        return PLAYING;
+    }
+
+    ui.resultSeconds = game.timeSeconds;
+    ui.resultStars = 0;
+    if (isWin) {
+        ui.resultStars = calculateStars(game.maze.size, game.timeSeconds);
+        if (isValidName(ui.playerName)) {
+            Result result = {ui.playerName, game.level->id, game.timeSeconds,
+                             ui.resultStars};
+            saveResult(result);
+        }
+    }
+    ui.selectedItem = 0;
+    return RESULT;
+}
+
+// Handles the result screen: Enter plays the same level again on a new maze, Esc goes
+// back to the campaign map and frees the game.
+Screen updateResult(GameState& game, UiState& ui) {
+    if (IsKeyPressed(KEY_ENTER)) {
+        return PLAYING;
+    }
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        destroyGame(game);
+        ui.selectedItem = 0;
+        return CAMPAIGN_MAP;
+    }
+    return RESULT;
+}
+
+// Draws the result of the level: win with time, stars and best time, or torch out.
+void drawResult(const GameState& game, const Textures& textures, const UiState& ui) {
+    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+
+    bool isWin = ui.resultStars > 0;
+    const char* heading = isWin ? "Maze complete!" : "Your torch went out";
+    int headingWidth = MeasureText(heading, 38);
+    DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 220, 38, isWin ? GOLD : RED);
+
+    if (isWin) {
+        int seconds = static_cast<int>(ui.resultSeconds);
+        DrawText(TextFormat("Time: %02d:%02d", seconds / 60, seconds % 60), 500, 300, 28,
+                 RAYWHITE);
+        DrawText(TextFormat("Stars: %d", ui.resultStars), 500, 340, 28, GOLD);
+        Result best = {};
+        if (game.level != nullptr && getBestResult(ui.playerName, game.level->id, best)) {
+            int bestSeconds = static_cast<int>(best.bestSeconds);
+            DrawText(TextFormat("Best time: %02d:%02d", bestSeconds / 60, bestSeconds % 60),
+                     500, 380, 28, RAYWHITE);
+        }
+    }
+
+    const char* hint = "Enter: play again   Esc: back to the map";
+    int hintWidth = MeasureText(hint, 22);
+    DrawText(hint, (SCREEN_WIDTH - hintWidth) / 2, 500, 22, LIGHTGRAY);
+}
+
 }  // namespace
 
 // Reads input and runs the logic of the current screen. Returns the screen to show
@@ -275,7 +341,7 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
         if (IsKeyPressed(KEY_ESCAPE)) {
             destroyGame(game);
             ui.selectedItem = 0;
-            return MAIN_MENU;
+            return CAMPAIGN_MAP;
         }
         int heldDirection = -1;
         if (IsKeyDown(KEY_UP)) {
@@ -288,7 +354,11 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
             heldDirection = RIGHT;
         }
         updateCampaign(game, heldDirection, deltaTime);
-        return PLAYING;
+        return checkLevelEnd(game, ui);
+    }
+
+    if (screen == RESULT) {
+        return updateResult(game, ui);
     }
 
     if (screen == MAIN_MENU) {
@@ -316,14 +386,8 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
         drawPlayer(game, viewer, textures);
         EndScissorMode();
         drawHud(game, viewer, textures);
-        if (viewer.isOut || game.winner == 0) {
-            const char* message = "Maze complete!";
-            if (viewer.isOut) {
-                message = "Your torch went out";
-            }
-            DrawText(message, 430, 320, 30, GOLD);
-            DrawText("Press Esc to return to the menu", 400, 364, 24, RAYWHITE);
-        }
+    } else if (screen == RESULT) {
+        drawResult(game, textures, ui);
     } else if (screen == MAIN_MENU) {
         drawMainMenu(textures, ui);
     } else if (screen == CAMPAIGN_MAP || screen == MP_SETUP || screen == LEADERBOARD ||
