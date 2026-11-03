@@ -187,6 +187,78 @@ Screen updateBackScreen(Screen screen, UiState& ui) {
     return screen;
 }
 
+// Prepares the name entry screen with the last accepted name. Returns NAME_ENTRY.
+Screen openNameEntry(UiState& ui) {
+    ui.typedText = ui.playerName;
+    ui.errorMessage = "";
+    ui.selectedItem = -1;
+    return NAME_ENTRY;
+}
+
+// Handles typing, Backspace, Enter and the way back on the name entry screen. Returns
+// MAIN_MENU for a valid name, TITLE for Esc or Back, otherwise NAME_ENTRY.
+Screen updateNameEntry(UiState& ui) {
+    Vector2 pointer = GetMousePosition();
+    bool isMouseClick = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    ui.selectedItem =
+        isPointerOverButton(pointer, BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH,
+                            BUTTON_HEIGHT)
+            ? 0
+            : -1;
+
+    int key = GetCharPressed();
+    while (key > 0) {
+        if (key >= 32 && key <= 126 &&
+            static_cast<int>(ui.typedText.size()) < MAX_NAME_LENGTH) {
+            ui.typedText += static_cast<char>(key);
+        }
+        ui.errorMessage = "";
+        key = GetCharPressed();
+    }
+
+    if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) &&
+        !ui.typedText.empty()) {
+        ui.typedText.pop_back();
+        ui.errorMessage = "";
+    }
+
+    if (IsKeyPressed(KEY_ENTER)) {
+        if (isValidName(ui.typedText)) {
+            ui.playerName = ui.typedText;
+            ui.errorMessage = "";
+            ui.selectedItem = 0;
+            return MAIN_MENU;
+        }
+        ui.errorMessage = "Use 1-12 letters or numbers, no spaces.";
+        return NAME_ENTRY;
+    }
+
+    if (IsKeyPressed(KEY_ESCAPE) || (isMouseClick && ui.selectedItem == 0)) {
+        ui.selectedItem = 0;
+        return TITLE;
+    }
+    return NAME_ENTRY;
+}
+
+// Draws the name entry screen: heading, text input with its error, hint and Back.
+void drawNameEntry(const Textures& textures, const UiState& ui) {
+    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+
+    const char* heading = "Enter your name";
+    int headingWidth = MeasureText(heading, 38);
+    DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 200, 38, GOLD);
+
+    drawTextInput(ui.typedText, (SCREEN_WIDTH - 400) / 2, 300, 400, true, ui.errorMessage);
+
+    const char* hint = "Press Enter to continue";
+    int hintWidth = MeasureText(hint, 24);
+    DrawText(hint, (SCREEN_WIDTH - hintWidth) / 2, 420, 24, RAYWHITE);
+
+    drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
+                    ui.selectedItem == 0, false, textures);
+}
+
 // Draws the title screen and its route into the main menu.
 void drawTitleScreen(const Textures& textures, const UiState& ui) {
     drawScreenBackground(textures.titleScreen, Color{12, 10, 16, 255});
@@ -317,7 +389,7 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
     if (screen == TITLE) {
         if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE)) {
             ui.selectedItem = 0;
-            return MAIN_MENU;
+            return openNameEntry(ui);
         }
         Vector2 mouseDelta = GetMouseDelta();
         Vector2 pointer = GetMousePosition();
@@ -332,9 +404,13 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
         }
         if (isMouseClick && ui.selectedItem == 0) {
             ui.selectedItem = 0;
-            return MAIN_MENU;
+            return openNameEntry(ui);
         }
         return TITLE;
+    }
+
+    if (screen == NAME_ENTRY) {
+        return updateNameEntry(ui);
     }
 
     if (screen == PLAYING) {
@@ -381,6 +457,8 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
                 const Textures& textures) {
     if (screen == TITLE) {
         drawTitleScreen(textures, ui);
+    } else if (screen == NAME_ENTRY) {
+        drawNameEntry(textures, ui);
     } else if (screen == PLAYING && game.players != nullptr && game.playerCount > 0) {
         const Player& viewer = game.players[game.currentPlayer];
         BeginScissorMode(0, HUD_HEIGHT, GetScreenWidth(), GetScreenHeight() - HUD_HEIGHT);
@@ -408,5 +486,28 @@ bool drawButton(const char* label, int x, int y, int width, int height) {
     return drawButtonStyle(label, x, y, width, height, isHovered, isClicked, textures);
 }
 
-// Draws a text box with its current text and an optional error message.
-void drawTextInput(const std::string&, int, int, int, bool, const std::string&) {}
+// Draws a text box with the typed text, a blinking cursor when it has focus, and the
+// error message in red under it when errorMessage is not empty.
+void drawTextInput(const std::string& text, int x, int y, int width, bool hasFocus,
+                   const std::string& errorMessage) {
+    const int boxHeight = 48;
+    const int fontSize = 28;
+    Rectangle box = {static_cast<float>(x), static_cast<float>(y), static_cast<float>(width),
+                     static_cast<float>(boxHeight)};
+    DrawRectangleRec(box, Color{25, 20, 28, 255});
+    DrawRectangleLinesEx(box, 2.0f, hasFocus ? GOLD : GRAY);
+
+    int textX = x + 12;
+    int textY = y + (boxHeight - fontSize) / 2;
+    DrawText(text.c_str(), textX, textY, fontSize, RAYWHITE);
+
+    // The cursor is visible for half a second, then hidden for half a second.
+    if (hasFocus && static_cast<int>(GetTime() * 2) % 2 == 0) {
+        int textWidth = MeasureText(text.c_str(), fontSize);
+        DrawText("_", textX + textWidth, textY, fontSize, RAYWHITE);
+    }
+
+    if (!errorMessage.empty()) {
+        DrawText(errorMessage.c_str(), x, y + 56, 20, RED);
+    }
+}
