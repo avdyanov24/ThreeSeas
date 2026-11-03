@@ -26,6 +26,12 @@ const int LOGO_WIDTH = 366;
 const int LOGO_HEIGHT = 144;
 const char* const MENU_ITEMS[MENU_ITEM_COUNT] = {
     "Campaign", "Multiplayer", "Leaderboard", "How to Play", "Settings", "Exit"};
+const int PAUSE_ITEM_COUNT = 3;
+const int PAUSE_BUTTON_Y = 300;
+const char* const PAUSE_ITEMS[PAUSE_ITEM_COUNT] = {"Resume", "Restart", "Quit to map"};
+const int RESULT_ITEM_COUNT = 2;
+const int RESULT_BUTTON_Y = 440;
+const char* const RESULT_ITEMS[RESULT_ITEM_COUNT] = {"Play again", "Back to map"};
 const int ERA_COUNT = 3;
 const int PINS_PER_ERA = 3;
 const int PIN_RADIUS = 40;
@@ -860,13 +866,120 @@ Screen checkLevelEnd(const GameState& game, UiState& ui) {
     return RESULT;
 }
 
-// Handles the result screen: Enter plays the same level again on a new maze, Esc goes
-// back to the campaign map and frees the game.
-Screen updateResult(GameState& game, UiState& ui) {
+// Updates the selection of itemCount buttons stacked from firstButtonY, like the main
+// menu (mouse hover, Up/Down). Returns the index of the button activated by Enter or a
+// left click, otherwise -1.
+int updateButtonMenu(UiState& ui, int itemCount, int firstButtonY) {
+    Vector2 pointer = GetMousePosition();
+    Vector2 mouseDelta = GetMouseDelta();
+    bool isMouseClick = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f || isMouseClick) {
+        ui.isMouseActive = true;
+    }
+
+    if (ui.isMouseActive) {
+        ui.selectedItem = -1;
+        for (int i = 0; i < itemCount; i++) {
+            int buttonY = firstButtonY + i * BUTTON_SPACING;
+            if (isPointerOverButton(pointer, MENU_BUTTON_X, buttonY, BUTTON_WIDTH,
+                                    BUTTON_HEIGHT)) {
+                ui.selectedItem = i;
+                break;
+            }
+        }
+    }
+
+    if (IsKeyPressed(KEY_UP)) {
+        ui.isMouseActive = false;
+        ui.selectedItem = moveSelection(ui.selectedItem, -1, itemCount);
+        return -1;
+    }
+    if (IsKeyPressed(KEY_DOWN)) {
+        ui.isMouseActive = false;
+        ui.selectedItem = moveSelection(ui.selectedItem, 1, itemCount);
+        return -1;
+    }
     if (IsKeyPressed(KEY_ENTER)) {
+        ui.isMouseActive = false;
+        if (ui.selectedItem < 0) {
+            ui.selectedItem = 0;
+        }
+        return ui.selectedItem;
+    }
+    if (isMouseClick && ui.selectedItem >= 0) {
+        return ui.selectedItem;
+    }
+    return -1;
+}
+
+// Draws itemCount buttons stacked from firstButtonY, highlighting the selected one.
+void drawButtonMenu(const Textures& textures, const UiState& ui, const char* const labels[],
+                    int itemCount, int firstButtonY) {
+    for (int i = 0; i < itemCount; i++) {
+        int buttonY = firstButtonY + i * BUTTON_SPACING;
+        drawButtonStyle(labels[i], MENU_BUTTON_X, buttonY, BUTTON_WIDTH, BUTTON_HEIGHT,
+                        ui.selectedItem == i, false, textures);
+    }
+}
+
+// Draws the running maze: the maze, the torch light and the player inside the play
+// area, then the HUD on top.
+void drawGameplay(const GameState& game, const Textures& textures) {
+    const Player& viewer = game.players[game.currentPlayer];
+    BeginScissorMode(0, HUD_HEIGHT, GetScreenWidth(), GetScreenHeight() - HUD_HEIGHT);
+    drawMaze(game, viewer, textures);
+    drawTorchLight(game, viewer, textures);
+    drawPlayer(game, viewer, textures);
+    EndScissorMode();
+    drawHud(game, viewer, textures);
+}
+
+// Handles the pause screen. Returns PLAYING for Resume (or Esc) and Restart (after the
+// game is freed, so a new maze starts), CAMPAIGN_MAP for Quit to map, otherwise PAUSED.
+Screen updatePause(GameState& game, UiState& ui) {
+    if (IsKeyPressed(KEY_ESCAPE)) {
         return PLAYING;
     }
+    int choice = updateButtonMenu(ui, PAUSE_ITEM_COUNT, PAUSE_BUTTON_Y);
+    if (choice == 0) {
+        return PLAYING;
+    }
+    if (choice == 1) {
+        destroyGame(game);
+        return PLAYING;
+    }
+    if (choice == 2) {
+        destroyGame(game);
+        ui.selectedItem = 0;
+        return CAMPAIGN_MAP;
+    }
+    return PAUSED;
+}
+
+// Draws the paused maze under a dark layer with the heading and the pause buttons.
+void drawPause(const GameState& game, const Textures& textures, const UiState& ui) {
+    drawGameplay(game, textures);
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+    int headingWidth = MeasureText("Paused", 38);
+    DrawText("Paused", (SCREEN_WIDTH - headingWidth) / 2, 200, 38, GOLD);
+    drawButtonMenu(textures, ui, PAUSE_ITEMS, PAUSE_ITEM_COUNT, PAUSE_BUTTON_Y);
+}
+
+// Handles the result screen. Returns PLAYING for Play again (after the game is freed,
+// so a new maze of the same level starts), CAMPAIGN_MAP for Back to map or Esc,
+// otherwise RESULT.
+Screen updateResult(GameState& game, UiState& ui) {
     if (IsKeyPressed(KEY_ESCAPE)) {
+        destroyGame(game);
+        ui.selectedItem = 0;
+        return CAMPAIGN_MAP;
+    }
+    int choice = updateButtonMenu(ui, RESULT_ITEM_COUNT, RESULT_BUTTON_Y);
+    if (choice == 0) {
+        destroyGame(game);
+        return PLAYING;
+    }
+    if (choice == 1) {
         destroyGame(game);
         ui.selectedItem = 0;
         return CAMPAIGN_MAP;
@@ -874,7 +987,8 @@ Screen updateResult(GameState& game, UiState& ui) {
     return RESULT;
 }
 
-// Draws the result of the level: win with time, stars and best time, or torch out.
+// Draws the result of the level: on a win the stars, time and best time, otherwise
+// "Your torch went out", and the Play again and Back to map buttons.
 void drawResult(const GameState& game, const Textures& textures, const UiState& ui) {
     drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
     DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
@@ -882,24 +996,31 @@ void drawResult(const GameState& game, const Textures& textures, const UiState& 
     bool isWin = ui.resultStars > 0;
     const char* heading = isWin ? "Maze complete!" : "Your torch went out";
     int headingWidth = MeasureText(heading, 38);
-    DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 220, 38, isWin ? GOLD : RED);
+    DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 130, 38, isWin ? GOLD : RED);
 
     if (isWin) {
+        const float starX[3] = {540.0f, 640.0f, 740.0f};
+        for (int i = 0; i < 3; i++) {
+            Color starColor = i + 1 <= ui.resultStars ? GOLD : Color{70, 60, 60, 255};
+            DrawPoly(Vector2{starX[i], 250.0f}, 4, 36.0f, 45.0f, starColor);
+        }
+
         int seconds = static_cast<int>(ui.resultSeconds);
-        DrawText(TextFormat("Time: %02d:%02d", seconds / 60, seconds % 60), 500, 300, 28,
-                 RAYWHITE);
-        DrawText(TextFormat("Stars: %d", ui.resultStars), 500, 340, 28, GOLD);
+        const char* timeText = TextFormat("Time: %02d:%02d", seconds / 60, seconds % 60);
+        int timeWidth = MeasureText(timeText, 28);
+        DrawText(timeText, (SCREEN_WIDTH - timeWidth) / 2, 330, 28, RAYWHITE);
+
         Result best = {};
         if (game.level != nullptr && getBestResult(ui.playerName, game.level->id, best)) {
             int bestSeconds = static_cast<int>(best.bestSeconds);
-            DrawText(TextFormat("Best time: %02d:%02d", bestSeconds / 60, bestSeconds % 60),
-                     500, 380, 28, RAYWHITE);
+            const char* bestTime =
+                TextFormat("Best time: %02d:%02d", bestSeconds / 60, bestSeconds % 60);
+            int bestWidth = MeasureText(bestTime, 28);
+            DrawText(bestTime, (SCREEN_WIDTH - bestWidth) / 2, 370, 28, RAYWHITE);
         }
     }
 
-    const char* hint = "Enter: play again   Esc: back to the map";
-    int hintWidth = MeasureText(hint, 22);
-    DrawText(hint, (SCREEN_WIDTH - hintWidth) / 2, 500, 22, LIGHTGRAY);
+    drawButtonMenu(textures, ui, RESULT_ITEMS, RESULT_ITEM_COUNT, RESULT_BUTTON_Y);
 }
 
 }  // namespace
@@ -936,9 +1057,8 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
 
     if (screen == PLAYING) {
         if (IsKeyPressed(KEY_ESCAPE)) {
-            destroyGame(game);
             ui.selectedItem = 0;
-            return CAMPAIGN_MAP;
+            return PAUSED;
         }
         int heldDirection = -1;
         if (IsKeyDown(KEY_UP)) {
@@ -955,6 +1075,10 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
         }
         updateCampaign(game, heldDirection, deltaTime);
         return checkLevelEnd(game, ui);
+    }
+
+    if (screen == PAUSED) {
+        return updatePause(game, ui);
     }
 
     if (screen == RESULT) {
@@ -989,13 +1113,9 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
     } else if (screen == NAME_ENTRY) {
         drawNameEntry(textures, ui);
     } else if (screen == PLAYING && game.players != nullptr && game.playerCount > 0) {
-        const Player& viewer = game.players[game.currentPlayer];
-        BeginScissorMode(0, HUD_HEIGHT, GetScreenWidth(), GetScreenHeight() - HUD_HEIGHT);
-        drawMaze(game, viewer, textures);
-        drawTorchLight(game, viewer, textures);
-        drawPlayer(game, viewer, textures);
-        EndScissorMode();
-        drawHud(game, viewer, textures);
+        drawGameplay(game, textures);
+    } else if (screen == PAUSED && game.players != nullptr) {
+        drawPause(game, textures, ui);
     } else if (screen == RESULT) {
         drawResult(game, textures, ui);
     } else if (screen == MAIN_MENU) {
