@@ -1,6 +1,9 @@
 #include "screens.h"
 
+#include <cmath>
+
 #include "game.h"
+#include "levels.h"
 #include "save.h"
 #include "validation.h"
 
@@ -23,6 +26,22 @@ const int LOGO_WIDTH = 366;
 const int LOGO_HEIGHT = 144;
 const char* const MENU_ITEMS[MENU_ITEM_COUNT] = {
     "Campaign", "Multiplayer", "Leaderboard", "How to Play", "Settings", "Exit"};
+const int ERA_COUNT = 3;
+const int PINS_PER_ERA = 3;
+const int PIN_RADIUS = 40;
+const int PIN_Y = 360;
+const int PIN_X[PINS_PER_ERA] = {340, 640, 940};
+const int ERA_TAB_Y = 100;
+// Three tabs fill the screen width, so a tab that slides out ends fully off-screen
+const int ERA_TAB_WIDTH = BUTTON_NATIVE_WIDTH * 13;
+const int ERA_TAB_SPACING = SCREEN_WIDTH / ERA_COUNT;
+const float ERA_TAB_MIDDLE_SCALE = 1.1f;
+const float ERA_TAB_SIDE_SCALE = 0.8f;
+const float PIN_RING_FADE_SPEED = 4.0f;
+const float ERA_SPIN_SECONDS = 0.55f;
+const float PIN_FADE_SECONDS = 1.3f;
+const float PIN_SELECTED_GROWTH = 0.2f;
+const char* const ERA_TAB_LABELS[ERA_COUNT] = {"Era I", "Era II", "Era III"};
 
 // Tests whether the pointer is inside a button's screen rectangle.
 bool isPointerOverButton(Vector2 pointer, int x, int y, int width, int height) {
@@ -78,9 +97,130 @@ int moveSelection(int selectedItem, int direction, int itemCount) {
     return (selectedItem + direction + itemCount) % itemCount;
 }
 
-// Opens the first playable campaign maze.
-Screen openCampaign() {
-    return PLAYING;
+// Prepares the campaign map with the first pin selected and a valid era.
+// Returns CAMPAIGN_MAP.
+Screen openCampaign(UiState& ui) {
+    ui.selectedItem = 0;
+    if (ui.selectedEra < 1 || ui.selectedEra > ERA_COUNT) {
+        ui.selectedEra = 1;
+    }
+    return CAMPAIGN_MAP;
+}
+
+// Returns the level id (1 to 9) of a pin (0 to 2) in an era (1 to 3).
+int getLevelIdOfPin(int era, int pin) {
+    return (era - 1) * PINS_PER_ERA + pin + 1;
+}
+
+// Returns where an era's tab sits next to the selected era: -1 left, 0 middle, 1 right.
+int getEraSlot(int era, int selectedEra) {
+    return (era - selectedEra + ERA_COUNT + 1) % ERA_COUNT - 1;
+}
+
+// Returns the screen rectangle of an era tab at a slot (can be between slots while it
+// moves). The middle tab is the biggest; tabs shrink the further they are from it.
+Rectangle getEraTabRect(float slot) {
+    float distance = fabsf(slot) > 2.0f ? 2.0f : fabsf(slot);
+    float scale =
+        ERA_TAB_MIDDLE_SCALE - (ERA_TAB_MIDDLE_SCALE - ERA_TAB_SIDE_SCALE) * distance;
+    float width = ERA_TAB_WIDTH * scale;
+    float height = BUTTON_HEIGHT * scale;
+    float centerX = SCREEN_WIDTH / 2.0f + slot * ERA_TAB_SPACING;
+    float centerY = ERA_TAB_Y + BUTTON_HEIGHT / 2.0f;
+    return Rectangle{centerX - width / 2.0f, centerY - height / 2.0f, width, height};
+}
+
+// Draws one era tab at a slot. Tabs away from the middle are darker, as if they stand
+// in the shadow of the middle one.
+void drawEraTab(const char* label, float slot, bool isSelected, const Textures& textures) {
+    Rectangle bounds = getEraTabRect(slot);
+    float distance = fabsf(slot) > 1.0f ? 1.0f : fabsf(slot);
+    unsigned char light = static_cast<unsigned char>(255.0f - 140.0f * distance);
+    Color shade = {light, light, light, 255};
+
+    const Texture2D& texture = isSelected ? textures.buttonHover : textures.buttonNormal;
+    if (texture.id != 0) {
+        Rectangle source = {0.0f, 0.0f, static_cast<float>(texture.width),
+                            static_cast<float>(texture.height)};
+        DrawTexturePro(texture, source, bounds, Vector2{0.0f, 0.0f}, 0.0f, shade);
+    } else {
+        Color fill = isSelected ? Color{125, 63, 24, 255} : Color{45, 35, 32, 255};
+        DrawRectangleRec(bounds, ColorTint(fill, shade));
+        DrawRectangleLinesEx(bounds, 2.0f, ColorTint(GOLD, shade));
+    }
+
+    int fontSize = static_cast<int>(bounds.height * 0.35f);
+    int textWidth = MeasureText(label, fontSize);
+    int textX = static_cast<int>(bounds.x + (bounds.width - textWidth) / 2.0f);
+    int textY = static_cast<int>(bounds.y + (bounds.height - fontSize) / 2.0f);
+    DrawText(label, textX, textY, fontSize, ColorTint(isSelected ? GOLD : RAYWHITE, shade));
+}
+
+// Returns how far an animation of this length is, from 0 to 1, slowing down at the end.
+float getEasedProgress(float seconds, float duration) {
+    float progress = seconds / duration;
+    if (progress >= 1.0f) {
+        return 1.0f;
+    }
+    float remaining = 1.0f - progress;
+    return 1.0f - remaining * remaining * remaining;
+}
+
+// Notices when the selected era changes. Sets previousEra to the era shown before the
+// last switch and returns the seconds since that switch.
+float getTimeSinceEraSwitch(int selectedEra, int& previousEra) {
+    // static: the animation has to remember the last era and the switch time between
+    // frames, and UiState (types.h) must not be changed in this task
+    static int shownEra = 0;
+    static int lastEra = 0;
+    static double switchTime = 0.0;
+    if (selectedEra != shownEra) {
+        lastEra = shownEra == 0 ? selectedEra : shownEra;
+        shownEra = selectedEra;
+        switchTime = GetTime();
+    }
+    previousEra = lastEra;
+    return static_cast<float>(GetTime() - switchTime);
+}
+
+// Moves a pin's selection a little towards selected or not selected each frame, so its
+// ring fades and its size grows smoothly. Returns the selection from 0 to 1.
+float getPinRingAlpha(int pin, bool isSelected) {
+    // static: each pin's fade has to continue from where it was last frame
+    static float ringAlpha[PINS_PER_ERA] = {0.0f, 0.0f, 0.0f};
+    float step = GetFrameTime() * PIN_RING_FADE_SPEED;
+    if (isSelected) {
+        ringAlpha[pin] = ringAlpha[pin] + step > 1.0f ? 1.0f : ringAlpha[pin] + step;
+    } else {
+        ringAlpha[pin] = ringAlpha[pin] - step < 0.0f ? 0.0f : ringAlpha[pin] - step;
+    }
+    return ringAlpha[pin];
+}
+
+// Returns true if the player has a saved result for this level.
+bool hasResult(const UiState& ui, int levelId) {
+    Result best = {};
+    return getBestResult(ui.playerName, levelId, best);
+}
+
+// Returns true if the player may open this level from the map.
+bool isPinOpen(const UiState& ui, int levelId) {
+    return isLevelUnlocked(levelId, levelId > 1 && hasResult(ui, levelId - 1),
+                           ui.settings.isFreePlay);
+}
+
+// Opens the level of the selected pin if it is unlocked. Returns LEVEL_INTRO for an
+// open pin, otherwise CAMPAIGN_MAP (a locked pin does nothing).
+Screen openSelectedPin(UiState& ui) {
+    if (ui.selectedItem < 0 || ui.selectedItem >= PINS_PER_ERA) {
+        return CAMPAIGN_MAP;
+    }
+    int levelId = getLevelIdOfPin(ui.selectedEra, ui.selectedItem);
+    if (!isPinOpen(ui, levelId)) {
+        return CAMPAIGN_MAP;
+    }
+    ui.selectedLevel = levelId;
+    return LEVEL_INTRO;
 }
 
 // Sets up the destination screen for a selected main-menu entry.
@@ -88,7 +228,7 @@ Screen selectMenuItem(int selectedItem, UiState& ui) {
     ui.selectedItem = 0;
     switch (selectedItem) {
         case 0:
-            return openCampaign();
+            return openCampaign(ui);
         case 1:
             return MP_SETUP;
         case 2:
@@ -150,6 +290,78 @@ Screen updateMainMenu(UiState& ui) {
         ui.isMouseActive = false;
     }
     return MAIN_MENU;
+}
+
+// Handles pins, era tabs and the way back on the campaign map. Returns LEVEL_INTRO
+// for an opened pin, MAIN_MENU for Esc or Back, otherwise CAMPAIGN_MAP.
+Screen updateCampaignMap(UiState& ui) {
+    Vector2 pointer = GetMousePosition();
+    Vector2 mouseDelta = GetMouseDelta();
+    bool isMouseClick = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f || isMouseClick) {
+        ui.isMouseActive = true;
+    }
+
+    if (ui.isMouseActive) {
+        ui.selectedItem = -1;
+        for (int i = 0; i < PINS_PER_ERA; i++) {
+            Vector2 center = {static_cast<float>(PIN_X[i]), static_cast<float>(PIN_Y)};
+            if (CheckCollisionPointCircle(pointer, center, static_cast<float>(PIN_RADIUS))) {
+                ui.selectedItem = i;
+                break;
+            }
+        }
+    }
+
+    if (isMouseClick) {
+        for (int era = 1; era <= ERA_COUNT; era++) {
+            float slot = static_cast<float>(getEraSlot(era, ui.selectedEra));
+            if (CheckCollisionPointRec(pointer, getEraTabRect(slot))) {
+                ui.selectedEra = era;
+                ui.selectedItem = 0;
+                return CAMPAIGN_MAP;
+            }
+        }
+        if (isPointerOverButton(pointer, BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH,
+                                BUTTON_HEIGHT)) {
+            ui.selectedItem = 0;
+            return MAIN_MENU;
+        }
+        return openSelectedPin(ui);
+    }
+
+    if (IsKeyPressed(KEY_LEFT)) {
+        ui.isMouseActive = false;
+        ui.selectedItem = moveSelection(ui.selectedItem, -1, PINS_PER_ERA);
+        return CAMPAIGN_MAP;
+    }
+    if (IsKeyPressed(KEY_RIGHT)) {
+        ui.isMouseActive = false;
+        ui.selectedItem = moveSelection(ui.selectedItem, 1, PINS_PER_ERA);
+        return CAMPAIGN_MAP;
+    }
+    // The eras go round in a circle: after Era III comes Era I again
+    if (IsKeyPressed(KEY_UP)) {
+        ui.isMouseActive = false;
+        ui.selectedEra = ui.selectedEra % ERA_COUNT + 1;
+        ui.selectedItem = 0;
+        return CAMPAIGN_MAP;
+    }
+    if (IsKeyPressed(KEY_DOWN)) {
+        ui.isMouseActive = false;
+        ui.selectedEra = (ui.selectedEra + ERA_COUNT - 2) % ERA_COUNT + 1;
+        ui.selectedItem = 0;
+        return CAMPAIGN_MAP;
+    }
+    if (IsKeyPressed(KEY_ENTER)) {
+        ui.isMouseActive = false;
+        return openSelectedPin(ui);
+    }
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        ui.selectedItem = 0;
+        return MAIN_MENU;
+    }
+    return CAMPAIGN_MAP;
 }
 
 // Handles the Back button and Escape on campaign and pending feature screens.
@@ -307,6 +519,9 @@ void drawBackScreen(Screen screen, const Textures& textures, const UiState& ui) 
     } else if (screen == SETTINGS) {
         heading = "Settings";
         message = "Settings are pending.";
+    } else if (screen == LEVEL_INTRO) {
+        heading = "Level intro";
+        message = "Level intro is pending. Enter: play, Esc: back.";
     }
 
     int headingWidth = MeasureText(heading, 38);
@@ -315,6 +530,123 @@ void drawBackScreen(Screen screen, const Textures& textures, const UiState& ui) 
     DrawText(message, (SCREEN_WIDTH - messageWidth) / 2, 330, 24, RAYWHITE);
     drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
                     ui.selectedItem == 0, false, textures);
+}
+
+// Draws one campaign pin: grey when locked, orange when open, gold when finished,
+// with its number, place name, status and a white ring when it is selected. The
+// selected pin smoothly grows bigger than the others. alpha (0 to 1) fades the whole
+// pin in after an era switch.
+void drawCampaignPin(const UiState& ui, int pin, float alpha) {
+    int levelId = getLevelIdOfPin(ui.selectedEra, pin);
+    const Level* level = getLevel(levelId);
+    int x = PIN_X[pin];
+    bool isOpen = isPinOpen(ui, levelId);
+    Result best = {};
+    bool isFinished = getBestResult(ui.playerName, levelId, best);
+
+    // selection goes from 0 (not selected) to 1 (selected) over a few frames
+    float selection = getPinRingAlpha(pin, ui.selectedItem == pin);
+    float scale = 1.0f + PIN_SELECTED_GROWTH * selection;
+    // the text under the pin moves down as the pin grows, so they never overlap
+    int textShift = static_cast<int>(90.0f * (scale - 1.0f));
+
+    Color pinColor = Color{90, 90, 90, 255};
+    if (isFinished) {
+        pinColor = GOLD;
+    } else if (isOpen) {
+        pinColor = ORANGE;
+    }
+    if (isOpen || isFinished) {
+        DrawCircle(x, PIN_Y, 50.0f * scale, Fade(pinColor, 0.35f * alpha));
+    }
+    DrawCircle(x, PIN_Y, PIN_RADIUS * scale, Fade(pinColor, alpha));
+
+    const char* number = TextFormat("%d", levelId);
+    int numberSize = static_cast<int>(28.0f * scale);
+    int numberWidth = MeasureText(number, numberSize);
+    DrawText(number, x - numberWidth / 2, PIN_Y - numberSize / 2, numberSize,
+             Fade(BLACK, alpha));
+
+    const char* place = level->place.c_str();
+    int placeWidth = MeasureText(place, 22);
+    DrawText(place, x - placeWidth / 2, PIN_Y + 66 + textShift, 22, Fade(RAYWHITE, alpha));
+
+    if (isFinished) {
+        const char* stars = TextFormat("Stars: %d", best.stars);
+        int starsWidth = MeasureText(stars, 18);
+        DrawText(stars, x - starsWidth / 2, PIN_Y + 96 + textShift, 18, Fade(GOLD, alpha));
+    } else if (!isOpen) {
+        int lockedWidth = MeasureText("Locked", 18);
+        DrawText("Locked", x - lockedWidth / 2, PIN_Y + 96 + textShift, 18,
+                 Fade(GRAY, alpha));
+    }
+
+    float ringAlpha = selection * alpha;
+    if (ringAlpha > 0.0f) {
+        // pulse goes smoothly from 0 to 1 and back, about once every 1.8 seconds
+        float pulse = (sinf(static_cast<float>(GetTime()) * 3.5f) + 1.0f) / 2.0f;
+        Vector2 center = {static_cast<float>(x), static_cast<float>(PIN_Y)};
+        float outerRadius = (57.0f + pulse * 3.0f) * scale;
+        DrawRing(center, outerRadius, outerRadius + 6.0f, 0.0f, 360.0f, 64,
+                 Fade(RAYWHITE, 0.25f * (1.0f - pulse) * ringAlpha));
+        DrawRing(center, outerRadius - 5.0f, outerRadius, 0.0f, 360.0f, 64,
+                 Fade(RAYWHITE, (0.75f + 0.25f * pulse) * ringAlpha));
+    }
+}
+
+// Draws the campaign map: era tabs, the era name, three pins, a hint and Back.
+void drawCampaignMap(const Textures& textures, const UiState& ui) {
+    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+
+    int headingWidth = MeasureText("Campaign", 38);
+    DrawText("Campaign", (SCREEN_WIDTH - headingWidth) / 2, 40, 38, GOLD);
+
+    int previousEra = ui.selectedEra;
+    float secondsSinceSwitch = getTimeSinceEraSwitch(ui.selectedEra, previousEra);
+    float spinProgress = getEasedProgress(secondsSinceSwitch, ERA_SPIN_SECONDS);
+    float fadeProgress = getEasedProgress(secondsSinceSwitch, PIN_FADE_SECONDS);
+
+    for (int era = 1; era <= ERA_COUNT; era++) {
+        int newSlot = getEraSlot(era, ui.selectedEra);
+        int oldSlot = getEraSlot(era, previousEra);
+        // Every tab moves one slot the same way; the tab that wraps around is moved
+        // by -2 or +2 slots, which becomes the same one-slot move here
+        int shift = oldSlot - newSlot;
+        if (shift > 1) {
+            shift -= ERA_COUNT;
+        } else if (shift < -1) {
+            shift += ERA_COUNT;
+        }
+        bool isSelected = era == ui.selectedEra;
+        float slot =
+            static_cast<float>(newSlot) + static_cast<float>(shift) * (1.0f - spinProgress);
+        drawEraTab(ERA_TAB_LABELS[era - 1], slot, isSelected, textures);
+        // The wrapping tab also slides out on the side it left, so it never jumps
+        if (oldSlot != newSlot + shift && spinProgress < 1.0f) {
+            float leavingSlot =
+                static_cast<float>(oldSlot) - static_cast<float>(shift) * spinProgress;
+            drawEraTab(ERA_TAB_LABELS[era - 1], leavingSlot, isSelected, textures);
+        }
+    }
+
+    const char* eraName = getLevel(getLevelIdOfPin(ui.selectedEra, 0))->era.c_str();
+    int eraWidth = MeasureText(eraName, 26);
+    DrawText(eraName, (SCREEN_WIDTH - eraWidth) / 2, 200, 26, Fade(RAYWHITE, fadeProgress));
+
+    for (int pin = 0; pin < PINS_PER_ERA; pin++) {
+        drawCampaignPin(ui, pin, fadeProgress);
+    }
+
+    const char* hint =
+        "Left/Right: choose maze   Up/Down: change era   Enter: open   Esc: back";
+    int hintWidth = MeasureText(hint, 20);
+    DrawText(hint, (SCREEN_WIDTH - hintWidth) / 2, 520, 20, LIGHTGRAY);
+
+    bool isBackHovered = isPointerOverButton(GetMousePosition(), BACK_BUTTON_X,
+                                             BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT);
+    drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
+                    isBackHovered, false, textures);
 }
 
 // Ends the level when the exit was reached or the torch went out. A win is saved with
@@ -444,8 +776,29 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
         return updateMainMenu(ui);
     }
 
-    if (screen == CAMPAIGN_MAP || screen == MP_SETUP || screen == LEADERBOARD ||
-        screen == HOW_TO_PLAY || screen == SETTINGS) {
+    if (screen == CAMPAIGN_MAP) {
+        return updateCampaignMap(ui);
+    }
+
+    // Temporary level intro until the real screen exists
+    if (screen == LEVEL_INTRO) {
+        ui.selectedItem = isPointerOverButton(GetMousePosition(), BACK_BUTTON_X,
+                                              BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT)
+                              ? 0
+                              : -1;
+        if (IsKeyPressed(KEY_ESCAPE) ||
+            (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && ui.selectedItem == 0)) {
+            ui.selectedItem = 0;
+            return CAMPAIGN_MAP;
+        }
+        if (IsKeyPressed(KEY_ENTER)) {
+            return PLAYING;
+        }
+        return LEVEL_INTRO;
+    }
+
+    if (screen == MP_SETUP || screen == LEADERBOARD || screen == HOW_TO_PLAY ||
+        screen == SETTINGS) {
         return updateBackScreen(screen, ui);
     }
 
@@ -471,7 +824,9 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
         drawResult(game, textures, ui);
     } else if (screen == MAIN_MENU) {
         drawMainMenu(textures, ui);
-    } else if (screen == CAMPAIGN_MAP || screen == MP_SETUP || screen == LEADERBOARD ||
+    } else if (screen == CAMPAIGN_MAP) {
+        drawCampaignMap(textures, ui);
+    } else if (screen == LEVEL_INTRO || screen == MP_SETUP || screen == LEADERBOARD ||
                screen == HOW_TO_PLAY || screen == SETTINGS) {
         drawBackScreen(screen, textures, ui);
     }
