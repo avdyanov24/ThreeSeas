@@ -5,84 +5,84 @@
 - **Function tested:** `isValidSize`
 - **Input:** Campaign sizes 9, 10, 50, and 51.
 - **Expected result:** 9 and 51 are rejected; 10 and 50 are accepted.
-- **Actual result:** Not run yet
+- **Actual result:** Passed on 3 Nov 2026 (8 checks, all PASS)
 
 ### T02: Number parsing
 - **Purpose:** Check that only non-empty digit text is parsed as a number.
 - **Function tested:** `parseWholeNumber`
 - **Input:** `abc`, empty text, and `12a`.
 - **Expected result:** Each input is rejected and the number remains unchanged.
-- **Actual result:** Not run yet
+- **Actual result:** Passed on 3 Nov 2026 (8 checks, all PASS)
 
 ### T03: Name validation
 - **Purpose:** Check the allowed characters and length for player names.
 - **Function tested:** `isValidName`
 - **Input:** `Petrov_1`, `Abcdefghijkl`, empty text, `Abcdefghijklm`, and `Petrov 1`.
 - **Expected result:** Names of 1 to 12 letters, digits, or underscores are accepted; the other inputs are rejected.
-- **Actual result:** Not run yet
+- **Actual result:** Passed on 3 Nov 2026 (6 checks, all PASS)
 
 ### T04: Maze dimensions
 - **Purpose:** Check that maze creation makes a square maze of the requested size.
 - **Function tested:** `createMaze`
 - **Input:** Create a maze with size 10.
 - **Expected result:** The maze has 10 rows and 10 columns.
-- **Actual result:** Not run yet
+- **Actual result:** Passed on 3 Nov 2026 (12 checks, all PASS)
 
 ### T05: Start and exit tiles
 - **Purpose:** Check that generated mazes have a floor start and an exit at the bottom-right.
 - **Function tested:** `generatePaths`, `connectExit`
 - **Input:** Generate mazes of sizes 10 and 11, then connect each exit.
 - **Expected result:** Cell (0, 0) is FLOOR and cell (size-1, size-1) is EXIT in both mazes.
-- **Actual result:** Not run yet
+- **Actual result:** Passed on 3 Nov 2026 (16 checks, all PASS)
 
 ### T06: Exit is reachable
 - **Purpose:** Check that the exit can be reached from the start in a generated maze.
 - **Function tested:** `generatePaths`, `connectExit`
 - **Input:** Generate and connect the exit in a maze of size 10; search from (0, 0) using flood fill.
 - **Expected result:** Flood fill can reach the EXIT at (9, 9).
-- **Actual result:** Not run yet
+- **Actual result:** Passed on 3 Nov 2026 (4 checks, all PASS)
 
 ### T07: Move outside the maze
 - **Purpose:** Check that a player cannot move beyond the maze boundary.
 - **Function tested:** `tryMove`
 - **Input:** In a size 10 maze, put the player at (0, 0) and try to move UP.
 - **Expected result:** The move returns false and the player's position stays at (0, 0).
-- **Actual result:** Not run yet
+- **Actual result:** Passed on 3 Nov 2026 (12 checks, all PASS)
 
 ### T08: Move into a wall
 - **Purpose:** Check that a player cannot move into a wall.
 - **Function tested:** `tryMove`
 - **Input:** In a size 10 maze, put a player at (0, 0) and try to move RIGHT into a WALL.
 - **Expected result:** The move returns false and the player's position stays at (0, 0).
-- **Actual result:** Not run yet
+- **Actual result:** Passed on 3 Nov 2026 (6 checks, all PASS)
 
 ### T09: Door access
 - **Purpose:** Check that a locked door needs a key unless the player is IVAN_ASEN.
 - **Function tested:** `canEnter`
 - **Input:** Check a DOOR cell for a player without a key, a player with a key, and an IVAN_ASEN player.
 - **Expected result:** The player without a key cannot enter; the other two can enter.
-- **Actual result:** Not run yet
+- **Actual result:** Passed on 3 Nov 2026 (3 checks, all PASS)
 
 ### T10: Oil fuel refill
 - **Purpose:** Check that oil adds 25% of maximum fuel without going over the maximum.
 - **Function tested:** `pickUpItem`
 - **Input:** Pick up OIL with maxFuel 100 and fuel 50, then with fuel 90.
 - **Expected result:** Fuel becomes 75 after the first pickup and 100 after the second.
-- **Actual result:** Not run yet
+- **Actual result:** Passed on 3 Nov 2026 (3 checks, all PASS)
 
 ### T11: Torch radius
 - **Purpose:** Check torch radius at 100%, 50%, and 10% fuel, including BORIS.
 - **Function tested:** `getTorchRadius`
 - **Input:** Check normal players and BORIS with maxFuel 100 and fuel 100, 50, and 10.
 - **Expected result:** Normal radii are 3, 2, and 1; BORIS adds 1 at each fuel level.
-- **Actual result:** Not run yet
+- **Actual result:** Passed on 3 Nov 2026 (12 checks, all PASS)
 
 ### T12: Torch out
 - **Purpose:** Check that the torch is out when fuel reaches 0.
 - **Function tested:** `burnFuel`
 - **Input:** Burn 1 fuel from a player with fuel 1.
 - **Expected result:** Fuel is 0 and isOut is true.
-- **Actual result:** Not run yet
+- **Actual result:** Passed on 3 Nov 2026 (4 checks, all PASS)
 
 ### T13: Trap effects
 - **Purpose:** Check trap effects and note that no header function checks Krum's trap visibility.
@@ -103,7 +103,7 @@
 - **Function tested:** `calculateStars`
 - **Input:** For size 10, check times of 40, 70, and 71 seconds.
 - **Expected result:** The results are 3, 2, and 1 star, respectively.
-- **Actual result:** Not run yet
+- **Actual result:** Passed on 3 Nov 2026 (3 checks, all PASS)
 
 ### T16: Next player selection
 - **Purpose:** Check that nextTurn skips players who are out and wraps around.
