@@ -52,10 +52,8 @@ int main() {
 
     while (!WindowShouldClose() && !ui.isExitRequested) {
         float deltaTime = GetFrameTime();
-        Screen previousScreen = screen;
         screen = updateScreen(screen, game, ui, deltaTime);
-        // Coming back from the pause screen continues the same maze
-        if (screen == PLAYING && previousScreen != PLAYING && previousScreen != PAUSED) {
+        if (screen == PLAYING && game.players == nullptr) {
             startCampaignLevel(game, ui, textures, loadedLevelId);
         }
 
