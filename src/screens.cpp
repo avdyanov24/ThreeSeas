@@ -209,6 +209,84 @@ bool isPinOpen(const UiState& ui, int levelId) {
                            ui.settings.isFreePlay);
 }
 
+// Returns the highest era (1 to 3) the player has entered, found from the last open
+// level. Returns 1 if no level is open.
+int getHighestEraEntered(const UiState& ui) {
+    for (int levelId = LEVEL_COUNT; levelId >= 1; levelId--) {
+        if (isPinOpen(ui, levelId)) {
+            return (levelId - 1) / PINS_PER_ERA + 1;
+        }
+    }
+    return 1;
+}
+
+// Returns the hero suggested for a level: Krum in era 1, Ivan Asen II in era 2 and
+// Levski in era 3.
+CharacterId getSuggestedHero(int levelId) {
+    int era = (levelId - 1) / PINS_PER_ERA + 1;
+    if (era == 1) {
+        return KRUM;
+    }
+    if (era == 2) {
+        return IVAN_ASEN;
+    }
+    return LEVSKI;
+}
+
+// Returns the next unlocked hero after the current one, stepping by direction (+1 or
+// -1) and wrapping around. Returns the current hero if no other one is unlocked.
+CharacterId getNextUnlockedHero(const UiState& ui, int direction) {
+    int highestEra = getHighestEraEntered(ui);
+    int id = ui.characters[0];
+    for (int i = 0; i < CHARACTER_COUNT; i++) {
+        id = (id + direction + CHARACTER_COUNT) % CHARACTER_COUNT;
+        CharacterId hero = static_cast<CharacterId>(id);
+        if (isCharacterUnlocked(hero, highestEra, ui.settings.isFreePlay)) {
+            return hero;
+        }
+    }
+    return ui.characters[0];
+}
+
+// Draws text split at spaces into lines no wider than maxWidth, each line under the
+// previous one. Returns nothing.
+void drawWrappedText(const std::string& text, int x, int y, int maxWidth, int fontSize,
+                     Color color) {
+    std::string line = "";
+    std::string word = "";
+    int lineY = y;
+    int length = static_cast<int>(text.size());
+    // i == length is one step past the end, so the last word is handled too
+    for (int i = 0; i <= length; i++) {
+        if (i < length && text[i] != ' ') {
+            word += text[i];
+        } else {
+            std::string longerLine = line.empty() ? word : line + " " + word;
+            if (!line.empty() && MeasureText(longerLine.c_str(), fontSize) > maxWidth) {
+                DrawText(line.c_str(), x, lineY, fontSize, color);
+                lineY += fontSize + 8;
+                line = word;
+            } else {
+                line = longerLine;
+            }
+            word = "";
+        }
+    }
+    if (!line.empty()) {
+        DrawText(line.c_str(), x, lineY, fontSize, color);
+    }
+}
+
+// Prepares the level intro for ui.selectedLevel with the suggested hero and the
+// default maze size. Returns LEVEL_INTRO.
+Screen openLevelIntro(UiState& ui) {
+    ui.characters[0] = getSuggestedHero(ui.selectedLevel);
+    ui.typedText = "20";
+    ui.errorMessage = "";
+    ui.selectedItem = -1;
+    return LEVEL_INTRO;
+}
+
 // Opens the level of the selected pin if it is unlocked. Returns LEVEL_INTRO for an
 // open pin, otherwise CAMPAIGN_MAP (a locked pin does nothing).
 Screen openSelectedPin(UiState& ui) {
@@ -220,6 +298,63 @@ Screen openSelectedPin(UiState& ui) {
         return CAMPAIGN_MAP;
     }
     ui.selectedLevel = levelId;
+    return openLevelIntro(ui);
+}
+
+// Handles the hero choice, the maze size input and the way back on the level intro.
+// Returns PLAYING for a valid size, CAMPAIGN_MAP for Esc or Back, otherwise LEVEL_INTRO.
+Screen updateLevelIntro(UiState& ui) {
+    Vector2 pointer = GetMousePosition();
+    Vector2 mouseDelta = GetMouseDelta();
+    bool isMouseClick = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f || isMouseClick) {
+        ui.isMouseActive = true;
+    }
+    if (ui.isMouseActive) {
+        ui.selectedItem =
+            isPointerOverButton(pointer, BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH,
+                                BUTTON_HEIGHT)
+                ? 0
+                : -1;
+    }
+
+    int key = GetCharPressed();
+    while (key > 0) {
+        if (key >= '0' && key <= '9' && static_cast<int>(ui.typedText.size()) < 2) {
+            ui.typedText += static_cast<char>(key);
+        }
+        ui.errorMessage = "";
+        key = GetCharPressed();
+    }
+
+    if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) &&
+        !ui.typedText.empty()) {
+        ui.typedText.pop_back();
+        ui.errorMessage = "";
+    }
+
+    if (IsKeyPressed(KEY_LEFT)) {
+        ui.characters[0] = getNextUnlockedHero(ui, -1);
+    }
+    if (IsKeyPressed(KEY_RIGHT)) {
+        ui.characters[0] = getNextUnlockedHero(ui, 1);
+    }
+
+    if (IsKeyPressed(KEY_ENTER)) {
+        int size = 0;
+        if (parseWholeNumber(ui.typedText, size) && isValidSize(size, false)) {
+            ui.chosenSize = size;
+            ui.errorMessage = "";
+            return PLAYING;
+        }
+        ui.errorMessage = "Enter a whole number from 10 to 50.";
+        return LEVEL_INTRO;
+    }
+
+    if (IsKeyPressed(KEY_ESCAPE) || (isMouseClick && ui.selectedItem == 0)) {
+        ui.selectedItem = 0;
+        return CAMPAIGN_MAP;
+    }
     return LEVEL_INTRO;
 }
 
@@ -519,15 +654,69 @@ void drawBackScreen(Screen screen, const Textures& textures, const UiState& ui) 
     } else if (screen == SETTINGS) {
         heading = "Settings";
         message = "Settings are pending.";
-    } else if (screen == LEVEL_INTRO) {
-        heading = "Level intro";
-        message = "Level intro is pending. Enter: play, Esc: back.";
     }
 
     int headingWidth = MeasureText(heading, 38);
     int messageWidth = MeasureText(message, 24);
     DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 250, 38, GOLD);
     DrawText(message, (SCREEN_WIDTH - messageWidth) / 2, 330, 24, RAYWHITE);
+    drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
+                    ui.selectedItem == 0, false, textures);
+}
+
+// Draws the level intro: place and year, era, difficulty, best result, the fun fact,
+// the hero panel, the maze size input, a hint and the Back button.
+void drawLevelIntro(const Textures& textures, const UiState& ui) {
+    const Level& level = *getLevel(ui.selectedLevel);
+    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+
+    const char* heading = level.place.c_str();
+    if (level.year != 0) {
+        heading = TextFormat("%s - %d", level.place.c_str(), level.year);
+    }
+    int headingWidth = MeasureText(heading, 44);
+    DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 50, 44, GOLD);
+
+    int eraWidth = MeasureText(level.era.c_str(), 24);
+    DrawText(level.era.c_str(), (SCREEN_WIDTH - eraWidth) / 2, 110, 24, RAYWHITE);
+
+    const char* difficulty = "Difficulty: Easy";
+    if (level.difficulty == 2) {
+        difficulty = "Difficulty: Medium";
+    } else if (level.difficulty == 3) {
+        difficulty = "Difficulty: Hard";
+    }
+    DrawText(difficulty, 140, 160, 24, RAYWHITE);
+
+    Result best = {};
+    if (getBestResult(ui.playerName, level.id, best)) {
+        DrawText(TextFormat("Best: %d stars", best.stars), 140, 195, 24, GOLD);
+    } else {
+        DrawText("Not finished yet", 140, 195, 24, GRAY);
+    }
+
+    drawWrappedText(level.funFact, 140, 250, 1000, 26, RAYWHITE);
+
+    const Texture2D& portrait = textures.heroes[ui.characters[0]].portrait;
+    if (portrait.id != 0) {
+        DrawTexture(portrait, 140, 380, WHITE);
+    }
+    const Character* hero = getCharacter(ui.characters[0]);
+    DrawText(hero->name.c_str(), 290, 390, 28, GOLD);
+    DrawText(hero->power.c_str(), 290, 430, 22, RAYWHITE);
+    if (ui.characters[0] == getSuggestedHero(ui.selectedLevel)) {
+        DrawText("(suggested)", 290, 465, 20, LIGHTGRAY);
+    }
+    DrawText("Left/Right: change hero", 290, 490, 20, LIGHTGRAY);
+
+    DrawText("Maze size (10 to 50):", 760, 390, 24, RAYWHITE);
+    drawTextInput(ui.typedText, 760, 430, 200, true, ui.errorMessage);
+
+    const char* hint = "Enter: start   Esc: back";
+    int hintWidth = MeasureText(hint, 22);
+    DrawText(hint, (SCREEN_WIDTH - hintWidth) / 2, 545, 22, LIGHTGRAY);
+
     drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
                     ui.selectedItem == 0, false, textures);
 }
@@ -780,21 +969,8 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
         return updateCampaignMap(ui);
     }
 
-    // Temporary level intro until the real screen exists
     if (screen == LEVEL_INTRO) {
-        ui.selectedItem = isPointerOverButton(GetMousePosition(), BACK_BUTTON_X,
-                                              BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT)
-                              ? 0
-                              : -1;
-        if (IsKeyPressed(KEY_ESCAPE) ||
-            (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && ui.selectedItem == 0)) {
-            ui.selectedItem = 0;
-            return CAMPAIGN_MAP;
-        }
-        if (IsKeyPressed(KEY_ENTER)) {
-            return PLAYING;
-        }
-        return LEVEL_INTRO;
+        return updateLevelIntro(ui);
     }
 
     if (screen == MP_SETUP || screen == LEADERBOARD || screen == HOW_TO_PLAY ||
@@ -826,8 +1002,10 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
         drawMainMenu(textures, ui);
     } else if (screen == CAMPAIGN_MAP) {
         drawCampaignMap(textures, ui);
-    } else if (screen == LEVEL_INTRO || screen == MP_SETUP || screen == LEADERBOARD ||
-               screen == HOW_TO_PLAY || screen == SETTINGS) {
+    } else if (screen == LEVEL_INTRO) {
+        drawLevelIntro(textures, ui);
+    } else if (screen == MP_SETUP || screen == LEADERBOARD || screen == HOW_TO_PLAY ||
+               screen == SETTINGS) {
         drawBackScreen(screen, textures, ui);
     }
 }
