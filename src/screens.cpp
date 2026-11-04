@@ -1259,6 +1259,31 @@ void drawMultiplayerSetup(const Textures& textures, const UiState& ui) {
                     ui.isMouseActive && isOverBack, false, textures);
 }
 
+// Handles the black pass screen between turns. Esc does nothing, so nobody can peek at
+// the maze by pausing. Returns PLAYING when Enter is pressed, otherwise PASS_SCREEN.
+Screen updatePassScreen() {
+    if (IsKeyPressed(KEY_ENTER)) {
+        return PLAYING;
+    }
+    return PASS_SCREEN;
+}
+
+// Draws the black pass screen with the name of the player whose turn comes next.
+void drawPassScreen(const GameState& game) {
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, BLACK);
+
+    std::string message = "Pass the laptop.";
+    if (game.players != nullptr && game.currentPlayer >= 0 &&
+        game.currentPlayer < game.playerCount) {
+        message = "Pass to " + game.players[game.currentPlayer].name + ".";
+    }
+    int messageWidth = MeasureText(message.c_str(), 44);
+    DrawText(message.c_str(), (SCREEN_WIDTH - messageWidth) / 2, 290, 44, GOLD);
+
+    int enterWidth = MeasureText("Press Enter.", 28);
+    DrawText("Press Enter.", (SCREEN_WIDTH - enterWidth) / 2, 370, 28, RAYWHITE);
+}
+
 // Handles the settings screen: switches Sound or Free Play and saves the settings.
 // Returns MAIN_MENU for Back or Esc, otherwise SETTINGS.
 Screen updateSettings(UiState& ui) {
@@ -1383,6 +1408,10 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
         return updateMultiplayerSetup(ui);
     }
 
+    if (screen == PASS_SCREEN) {
+        return updatePassScreen();
+    }
+
     if (screen == LEADERBOARD || screen == HOW_TO_PLAY) {
         return updateBackScreen(screen, ui);
     }
@@ -1413,6 +1442,8 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
         drawSettings(textures, ui);
     } else if (screen == MP_SETUP) {
         drawMultiplayerSetup(textures, ui);
+    } else if (screen == PASS_SCREEN) {
+        drawPassScreen(game);
     } else if (screen == LEADERBOARD || screen == HOW_TO_PLAY) {
         drawBackScreen(screen, textures, ui);
     }
