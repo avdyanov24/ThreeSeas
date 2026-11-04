@@ -826,10 +826,7 @@ void drawBackScreen(Screen screen, const Textures& textures, const UiState& ui) 
 
     const char* heading = "Campaign";
     const char* message = "Campaign maze is not connected yet.";
-    if (screen == MP_SETUP) {
-        heading = "Multiplayer";
-        message = "Multiplayer is pending.";
-    } else if (screen == LEADERBOARD) {
+    if (screen == LEADERBOARD) {
         heading = "Leaderboard";
         message = "Leaderboard is pending.";
     } else if (screen == HOW_TO_PLAY) {
@@ -1198,6 +1195,70 @@ void drawResult(const GameState& game, const Textures& textures, const UiState& 
     drawButtonMenu(textures, ui, RESULT_ITEMS, RESULT_ITEM_COUNT, RESULT_BUTTON_Y);
 }
 
+// Draws the label of one setup row at y: a ">" marker and gold text when the row is
+// focused, otherwise white text.
+void drawSetupLabel(const char* text, int y, bool isFocused) {
+    if (isFocused) {
+        DrawText(">", 270, y, 26, GOLD);
+    }
+    DrawText(text, 300, y, 26, isFocused ? GOLD : RAYWHITE);
+}
+
+// Draws the multiplayer setup form: arena, player count, maze size, one row per player
+// with name and hero, the first error in red, a hint and the Back button.
+void drawMultiplayerSetup(const Textures& textures, const UiState& ui) {
+    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+
+    int headingWidth = MeasureText("Multiplayer", 38);
+    DrawText("Multiplayer", (SCREEN_WIDTH - headingWidth) / 2, 30, 38, GOLD);
+
+    std::string arenaName = "Arena " + std::to_string(ui.arenaId);
+    const Arena* arena = getArena(ui.arenaId);
+    if (arena != nullptr) {
+        arenaName = arena->name;
+    }
+    std::string arenaLabel = "Arena: < " + arenaName + " >";
+    drawSetupLabel(arenaLabel.c_str(), 100, ui.selectedItem == 0);
+    if (!isArenaOpen(ui, ui.arenaId)) {
+        int arenaWidth = MeasureText(arenaLabel.c_str(), 26);
+        DrawText(" (locked)", 300 + arenaWidth, 100, 26, GRAY);
+    }
+
+    std::string playersLabel = "Players: < " + std::to_string(ui.playerCount) + " >";
+    drawSetupLabel(playersLabel.c_str(), 150, ui.selectedItem == 1);
+
+    drawSetupLabel("Maze size (20 to 50):", 200, ui.selectedItem == 2);
+    drawTextInput(ui.typedText, 700, 192, 120, ui.selectedItem == 2, "");
+
+    for (int i = 0; i < ui.playerCount; i++) {
+        int y = 270 + i * 56;
+        bool isFocused = ui.selectedItem == 3 + i;
+        std::string playerLabel = "Player " + std::to_string(i + 1);
+        drawSetupLabel(playerLabel.c_str(), y, isFocused);
+        drawTextInput(ui.playerNames[i], 430, y - 8, 260, isFocused, "");
+        const Character* hero = getCharacter(ui.characters[i]);
+        if (hero != nullptr) {
+            std::string heroLabel = "< " + hero->name + " >";
+            DrawText(heroLabel.c_str(), 720, y, 24, RAYWHITE);
+        }
+    }
+
+    if (!ui.errorMessage.empty()) {
+        int errorWidth = MeasureText(ui.errorMessage.c_str(), 22);
+        DrawText(ui.errorMessage.c_str(), (SCREEN_WIDTH - errorWidth) / 2, 515, 22, RED);
+    }
+
+    const char* hint = "Up/Down: row   Left/Right: change   Enter: start   Esc: back";
+    int hintWidth = MeasureText(hint, 20);
+    DrawText(hint, (SCREEN_WIDTH - hintWidth) / 2, 550, 20, LIGHTGRAY);
+
+    bool isOverBack = isPointerOverButton(GetMousePosition(), BACK_BUTTON_X, BACK_BUTTON_Y,
+                                          BUTTON_WIDTH, BUTTON_HEIGHT);
+    drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
+                    ui.isMouseActive && isOverBack, false, textures);
+}
+
 // Handles the settings screen: switches Sound or Free Play and saves the settings.
 // Returns MAIN_MENU for Back or Esc, otherwise SETTINGS.
 Screen updateSettings(UiState& ui) {
@@ -1350,7 +1411,9 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
         drawLevelIntro(textures, ui);
     } else if (screen == SETTINGS) {
         drawSettings(textures, ui);
-    } else if (screen == MP_SETUP || screen == LEADERBOARD || screen == HOW_TO_PLAY) {
+    } else if (screen == MP_SETUP) {
+        drawMultiplayerSetup(textures, ui);
+    } else if (screen == LEADERBOARD || screen == HOW_TO_PLAY) {
         drawBackScreen(screen, textures, ui);
     }
 }
