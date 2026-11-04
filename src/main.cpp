@@ -5,6 +5,7 @@
 
 #include "game.h"
 #include "levels.h"
+#include "save.h"
 #include "screens.h"
 #include "validation.h"
 
@@ -44,6 +45,7 @@ int main() {
 
     GameState game = createEmptyGame();
     UiState ui = {};
+    ui.settings = loadSettings();
     srand(static_cast<unsigned int>(time(nullptr)));
     int loadedLevelId = 1;
     Textures textures = loadTextures(*getLevel(loadedLevelId));
