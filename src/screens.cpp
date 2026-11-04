@@ -34,6 +34,9 @@ const char* const PAUSE_ITEMS[PAUSE_ITEM_COUNT] = {"Resume", "Restart", "Quit to
 const int RESULT_ITEM_COUNT = 2;
 const int RESULT_BUTTON_Y = 440;
 const char* const RESULT_ITEMS[RESULT_ITEM_COUNT] = {"Play again", "Back to map"};
+const int MP_RESULT_ITEM_COUNT = 2;
+const int MP_RESULT_BUTTON_Y = 440;
+const char* const MP_RESULT_ITEMS[MP_RESULT_ITEM_COUNT] = {"Rematch", "Menu"};
 const int ERA_COUNT = 3;
 const int PINS_PER_ERA = 3;
 const int PIN_RADIUS = 40;
@@ -1284,6 +1287,53 @@ void drawPassScreen(const GameState& game) {
     DrawText("Press Enter.", (SCREEN_WIDTH - enterWidth) / 2, 370, 28, RAYWHITE);
 }
 
+// Handles the multiplayer result screen. Returns PLAYING for Rematch (after the game is
+// freed, so a new game with the same setup starts), MAIN_MENU for Menu or Esc,
+// otherwise MP_RESULT.
+Screen updateMultiplayerResult(GameState& game, UiState& ui) {
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        destroyGame(game);
+        ui.selectedItem = 0;
+        return MAIN_MENU;
+    }
+    int choice = updateButtonMenu(ui, MP_RESULT_ITEM_COUNT, MP_RESULT_BUTTON_Y);
+    if (choice == 0) {
+        destroyGame(game);
+        return PLAYING;
+    }
+    if (choice == 1) {
+        destroyGame(game);
+        ui.selectedItem = 0;
+        return MAIN_MENU;
+    }
+    return MP_RESULT;
+}
+
+// Draws the multiplayer result: the winner and their hero, or a draw, and the Rematch
+// and Menu buttons.
+void drawMultiplayerResult(const GameState& game, const Textures& textures, const UiState& ui) {
+    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+
+    if (game.players != nullptr && game.winner >= 0 && game.winner < game.playerCount) {
+        const Player& winner = game.players[game.winner];
+        std::string heading = winner.name + " wins!";
+        int headingWidth = MeasureText(heading.c_str(), 38);
+        DrawText(heading.c_str(), (SCREEN_WIDTH - headingWidth) / 2, 200, 38, GOLD);
+        const Character* hero = getCharacter(winner.character);
+        if (hero != nullptr) {
+            int heroWidth = MeasureText(hero->name.c_str(), 28);
+            DrawText(hero->name.c_str(), (SCREEN_WIDTH - heroWidth) / 2, 270, 28, RAYWHITE);
+        }
+    } else if (game.winner == DRAW) {
+        const char* heading = "Draw: all torches went out";
+        int headingWidth = MeasureText(heading, 38);
+        DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 200, 38, RED);
+    }
+
+    drawButtonMenu(textures, ui, MP_RESULT_ITEMS, MP_RESULT_ITEM_COUNT, MP_RESULT_BUTTON_Y);
+}
+
 // Handles the settings screen: switches Sound or Free Play and saves the settings.
 // Returns MAIN_MENU for Back or Esc, otherwise SETTINGS.
 Screen updateSettings(UiState& ui) {
@@ -1412,6 +1462,10 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
         return updatePassScreen();
     }
 
+    if (screen == MP_RESULT) {
+        return updateMultiplayerResult(game, ui);
+    }
+
     if (screen == LEADERBOARD || screen == HOW_TO_PLAY) {
         return updateBackScreen(screen, ui);
     }
@@ -1444,6 +1498,8 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
         drawMultiplayerSetup(textures, ui);
     } else if (screen == PASS_SCREEN) {
         drawPassScreen(game);
+    } else if (screen == MP_RESULT) {
+        drawMultiplayerResult(game, textures, ui);
     } else if (screen == LEADERBOARD || screen == HOW_TO_PLAY) {
         drawBackScreen(screen, textures, ui);
     }
