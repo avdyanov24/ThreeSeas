@@ -26,6 +26,8 @@ const int LOGO_WIDTH = 366;
 const int LOGO_HEIGHT = 144;
 const char* const MENU_ITEMS[MENU_ITEM_COUNT] = {
     "Campaign", "Multiplayer", "Leaderboard", "How to Play", "Settings", "Exit"};
+const int SETTINGS_ITEM_COUNT = 3;
+const int SETTINGS_BUTTON_Y = 300;
 const int PAUSE_ITEM_COUNT = 3;
 const int PAUSE_BUTTON_Y = 300;
 const char* const PAUSE_ITEMS[PAUSE_ITEM_COUNT] = {"Resume", "Restart", "Quit to map"};
@@ -364,6 +366,12 @@ Screen updateLevelIntro(UiState& ui) {
     return LEVEL_INTRO;
 }
 
+// Prepares the settings screen with the first button selected. Returns SETTINGS.
+Screen openSettings(UiState& ui) {
+    ui.selectedItem = 0;
+    return SETTINGS;
+}
+
 // Sets up the destination screen for a selected main-menu entry.
 Screen selectMenuItem(int selectedItem, UiState& ui) {
     ui.selectedItem = 0;
@@ -377,7 +385,7 @@ Screen selectMenuItem(int selectedItem, UiState& ui) {
         case 3:
             return HOW_TO_PLAY;
         case 4:
-            return SETTINGS;
+            return openSettings(ui);
         case 5:
             ui.isExitRequested = true;
             return MAIN_MENU;
@@ -657,9 +665,6 @@ void drawBackScreen(Screen screen, const Textures& textures, const UiState& ui) 
     } else if (screen == HOW_TO_PLAY) {
         heading = "How to Play";
         message = "How to Play is pending.";
-    } else if (screen == SETTINGS) {
-        heading = "Settings";
-        message = "Settings are pending.";
     }
 
     int headingWidth = MeasureText(heading, 38);
@@ -1023,6 +1028,48 @@ void drawResult(const GameState& game, const Textures& textures, const UiState& 
     drawButtonMenu(textures, ui, RESULT_ITEMS, RESULT_ITEM_COUNT, RESULT_BUTTON_Y);
 }
 
+// Handles the settings screen: switches Sound or Free Play and saves the settings.
+// Returns MAIN_MENU for Back or Esc, otherwise SETTINGS.
+Screen updateSettings(UiState& ui) {
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        ui.selectedItem = 0;
+        return MAIN_MENU;
+    }
+    int choice = updateButtonMenu(ui, SETTINGS_ITEM_COUNT, SETTINGS_BUTTON_Y);
+    if (choice == 0) {
+        ui.settings.isSoundOn = !ui.settings.isSoundOn;
+        saveSettings(ui.settings);
+    } else if (choice == 1) {
+        ui.settings.isFreePlay = !ui.settings.isFreePlay;
+        saveSettings(ui.settings);
+    } else if (choice == 2) {
+        ui.selectedItem = 0;
+        return MAIN_MENU;
+    }
+    return SETTINGS;
+}
+
+// Draws the settings screen: the heading, the Sound, Free Play and Back buttons, and a
+// note about Free Play.
+void drawSettings(const Textures& textures, const UiState& ui) {
+    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+
+    int headingWidth = MeasureText("Settings", 38);
+    DrawText("Settings", (SCREEN_WIDTH - headingWidth) / 2, 200, 38, GOLD);
+
+    // TextFormat reuses its buffers, so each label is kept in its own variable first
+    const char* soundLabel = TextFormat("Sound: %s", ui.settings.isSoundOn ? "On" : "Off");
+    const char* freePlayLabel =
+        TextFormat("Free Play: %s", ui.settings.isFreePlay ? "On" : "Off");
+    const char* const labels[SETTINGS_ITEM_COUNT] = {soundLabel, freePlayLabel, "Back"};
+    drawButtonMenu(textures, ui, labels, SETTINGS_ITEM_COUNT, SETTINGS_BUTTON_Y);
+
+    const char* note = "Free Play opens every maze, hero and arena. It does not save progress.";
+    int noteWidth = MeasureText(note, 20);
+    DrawText(note, (SCREEN_WIDTH - noteWidth) / 2, 560, 20, LIGHTGRAY);
+}
+
 }  // namespace
 
 // Reads input and runs the logic of the current screen. Returns the screen to show
@@ -1097,8 +1144,11 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
         return updateLevelIntro(ui);
     }
 
-    if (screen == MP_SETUP || screen == LEADERBOARD || screen == HOW_TO_PLAY ||
-        screen == SETTINGS) {
+    if (screen == SETTINGS) {
+        return updateSettings(ui);
+    }
+
+    if (screen == MP_SETUP || screen == LEADERBOARD || screen == HOW_TO_PLAY) {
         return updateBackScreen(screen, ui);
     }
 
@@ -1124,8 +1174,9 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
         drawCampaignMap(textures, ui);
     } else if (screen == LEVEL_INTRO) {
         drawLevelIntro(textures, ui);
-    } else if (screen == MP_SETUP || screen == LEADERBOARD || screen == HOW_TO_PLAY ||
-               screen == SETTINGS) {
+    } else if (screen == SETTINGS) {
+        drawSettings(textures, ui);
+    } else if (screen == MP_SETUP || screen == LEADERBOARD || screen == HOW_TO_PLAY) {
         drawBackScreen(screen, textures, ui);
     }
 }
