@@ -108,7 +108,17 @@ bool tryMove(Maze& maze, Player& player, Direction direction) {
     return true;
 }
 
-int getStepCost(const Maze&, int, int) { return 0; }
+// Returns the cost to enter a cell, or 1 when the cell is outside the maze.
+int getStepCost(const Maze& maze, int row, int col) {
+    if (!isInside(maze, row, col)) {
+        return 1;
+    }
+
+    if (maze.cells[row][col].tile == WATER) {
+        return 2;
+    }
+    return 1;
+}
 
 // Advances campaign time and fuel, and moves at the shared walking interval.
 void updateCampaign(GameState& game, int heldDirection, float deltaTime) {
@@ -277,7 +287,21 @@ void useMap(const Maze& maze, Player& player) {
     player.maps--;
 }
 
-bool placeTrap(Maze&, Player&, int) { return false; }
+// Places one of the player's traps on their cell and returns whether it succeeded.
+bool placeTrap(Maze& maze, Player& player, int playerIndex) {
+    if (player.traps <= 0) {
+        return false;
+    }
+
+    Cell& cell = maze.cells[player.row][player.col];
+    if (cell.trapOwner != NO_TRAP) {
+        return false;
+    }
+
+    cell.trapOwner = playerIndex;
+    player.traps--;
+    return true;
+}
 
 // Returns whether the player is standing on the maze exit.
 bool hasReachedExit(const Maze& maze, const Player& player) {
