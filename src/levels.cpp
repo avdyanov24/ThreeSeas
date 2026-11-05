@@ -123,7 +123,19 @@ const Level* getLevel(int id) {
     return &levels[id - 1];
 }
 
-const Arena* getArena(int) { return nullptr; }
+// Returns the arena with this id, or nullptr when the id is out of range.
+const Arena* getArena(int id) {
+    static const Arena arenas[ARENA_COUNT] = {
+        {1, "Pliska", 1, false, false},
+        {2, "Tsarevets", 2, true, false},
+        {3, "Balkan Pass", 3, true, true}};
+
+    if (id < 1 || id > ARENA_COUNT) {
+        return nullptr;
+    }
+
+    return &arenas[id - 1];
+}
 
 // Returns the character with the given id, or nullptr when the id is out of range.
 const Character* getCharacter(CharacterId id) {
@@ -166,4 +178,13 @@ bool isCharacterUnlocked(CharacterId id, int highestEraEntered, bool isFreePlay)
     return highestEraEntered >= character->era;
 }
 
-bool isArenaUnlocked(int, int, bool) { return false; }
+// Returns whether an arena is open based on finished eras or Free Play.
+bool isArenaUnlocked(int arenaId, int erasFinished, bool isFreePlay) {
+    if (arenaId < 1 || arenaId > ARENA_COUNT) {
+        return false;
+    }
+    if (isFreePlay) {
+        return true;
+    }
+    return erasFinished >= arenaId;
+}
