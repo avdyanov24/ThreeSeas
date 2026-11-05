@@ -287,7 +287,21 @@ void useMap(const Maze& maze, Player& player) {
     player.maps--;
 }
 
-bool placeTrap(Maze&, Player&, int) { return false; }
+// Places one of the player's traps on their cell and returns whether it succeeded.
+bool placeTrap(Maze& maze, Player& player, int playerIndex) {
+    if (player.traps <= 0) {
+        return false;
+    }
+
+    Cell& cell = maze.cells[player.row][player.col];
+    if (cell.trapOwner != NO_TRAP) {
+        return false;
+    }
+
+    cell.trapOwner = playerIndex;
+    player.traps--;
+    return true;
+}
 
 // Returns whether the player is standing on the maze exit.
 bool hasReachedExit(const Maze& maze, const Player& player) {
