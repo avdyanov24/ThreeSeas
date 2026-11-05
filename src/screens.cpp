@@ -256,6 +256,176 @@ CharacterId getNextUnlockedHero(const UiState& ui, int direction) {
     return ui.characters[0];
 }
 
+// Returns the next unlocked hero after the hero of one multiplayer player, stepping by
+// direction (+1 or -1) and wrapping around. Returns that player's hero if no other one
+// is unlocked.
+CharacterId getNextUnlockedHeroFor(const UiState& ui, int player, int direction) {
+    int highestEra = getHighestEraEntered(ui);
+    int id = ui.characters[player];
+    for (int i = 0; i < CHARACTER_COUNT; i++) {
+        id = (id + direction + CHARACTER_COUNT) % CHARACTER_COUNT;
+        CharacterId hero = static_cast<CharacterId>(id);
+        if (isCharacterUnlocked(hero, highestEra, ui.settings.isFreePlay)) {
+            return hero;
+        }
+    }
+    return ui.characters[player];
+}
+
+// Returns how many eras the player has finished in order (0 to 3). An era counts when
+// its last (hard) maze has a result; counting stops at the first unfinished era.
+int getErasFinished(const UiState& ui) {
+    int count = 0;
+    for (int era = 1; era <= ERA_COUNT; era++) {
+        if (!hasResult(ui, PINS_PER_ERA * era)) {
+            break;
+        }
+        count++;
+    }
+    return count;
+}
+
+// Returns true if this multiplayer arena may be chosen.
+bool isArenaOpen(const UiState& ui, int arenaId) {
+    return isArenaUnlocked(arenaId, getErasFinished(ui), ui.settings.isFreePlay);
+}
+
+// Prepares the multiplayer setup. The first visit fills in the default players, arena
+// and size; later visits keep the last values. Returns MP_SETUP.
+Screen openMultiplayerSetup(UiState& ui) {
+    if (ui.playerCount < 2) {
+        const char* const defaultNames[MAX_PLAYERS] = {"Player1", "Player2", "Player3",
+                                                       "Player4"};
+        const CharacterId defaultHeroes[MAX_PLAYERS] = {ASPARUH, KRUM, BORIS, SIMEON};
+        ui.playerCount = 2;
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            ui.playerNames[i] = defaultNames[i];
+            ui.characters[i] = defaultHeroes[i];
+        }
+        ui.arenaId = 1;
+        ui.typedText = "30";
+    }
+    ui.selectedItem = 0;
+    ui.errorMessage = "";
+    return MP_SETUP;
+}
+
+// Checks the whole multiplayer setup. Returns "" when everything is valid, otherwise
+// the message for the first problem found.
+std::string getSetupError(const UiState& ui) {
+    if (!isArenaOpen(ui, ui.arenaId)) {
+        return "This arena is locked.";
+    }
+    if (!isValidPlayerCount(ui.playerCount)) {
+        return "Choose 2 to 4 players.";
+    }
+    int size = 0;
+    if (!parseWholeNumber(ui.typedText, size) || !isValidSize(size, true)) {
+        return "Enter a whole number from 20 to 50.";
+    }
+    for (int i = 0; i < ui.playerCount; i++) {
+        if (!isValidName(ui.playerNames[i])) {
+            return "Player " + std::to_string(i + 1) +
+                   ": use 1-12 letters or numbers, no spaces.";
+        }
+    }
+    for (int i = 0; i < ui.playerCount; i++) {
+        for (int j = 0; j < i; j++) {
+            if (ui.characters[j] == ui.characters[i]) {
+                return "Already taken by " + ui.playerNames[j] + ".";
+            }
+        }
+    }
+    return "";
+}
+
+// Handles the multiplayer setup form: Up/Down choose a row, Left/Right change the
+// arena, the player count or a hero, and typing fills the size or a name. Returns
+// PLAYING when Enter finds no error, MAIN_MENU for Esc or Back, otherwise MP_SETUP.
+Screen updateMultiplayerSetup(UiState& ui) {
+    Vector2 pointer = GetMousePosition();
+    Vector2 mouseDelta = GetMouseDelta();
+    bool isMouseClick = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f || isMouseClick) {
+        ui.isMouseActive = true;
+    }
+    bool isOverBack = isPointerOverButton(pointer, BACK_BUTTON_X, BACK_BUTTON_Y,
+                                          BUTTON_WIDTH, BUTTON_HEIGHT);
+    if (IsKeyPressed(KEY_ESCAPE) || (isMouseClick && isOverBack)) {
+        ui.selectedItem = 0;
+        return MAIN_MENU;
+    }
+
+    int rowCount = 3 + ui.playerCount;
+    if (IsKeyPressed(KEY_UP)) {
+        ui.isMouseActive = false;
+        ui.selectedItem = moveSelection(ui.selectedItem, -1, rowCount);
+    }
+    if (IsKeyPressed(KEY_DOWN)) {
+        ui.isMouseActive = false;
+        ui.selectedItem = moveSelection(ui.selectedItem, 1, rowCount);
+    }
+
+    int direction = 0;
+    if (IsKeyPressed(KEY_LEFT)) {
+        direction = -1;
+    } else if (IsKeyPressed(KEY_RIGHT)) {
+        direction = 1;
+    }
+    if (direction != 0) {
+        if (ui.selectedItem == 0) {
+            ui.arenaId = (ui.arenaId - 1 + direction + ARENA_COUNT) % ARENA_COUNT + 1;
+        } else if (ui.selectedItem == 1) {
+            int count = ui.playerCount + direction;
+            if (count >= 2 && count <= MAX_PLAYERS) {
+                ui.playerCount = count;
+            }
+            if (ui.selectedItem > 2 + ui.playerCount) {
+                ui.selectedItem = 2 + ui.playerCount;
+            }
+        } else if (ui.selectedItem >= 3) {
+            int player = ui.selectedItem - 3;
+            ui.characters[player] = getNextUnlockedHeroFor(ui, player, direction);
+        }
+    }
+
+    int key = GetCharPressed();
+    while (key > 0) {
+        if (ui.selectedItem == 2) {
+            if (key >= '0' && key <= '9' && static_cast<int>(ui.typedText.size()) < 2) {
+                ui.typedText += static_cast<char>(key);
+            }
+        } else if (ui.selectedItem >= 3) {
+            std::string& name = ui.playerNames[ui.selectedItem - 3];
+            if (key >= 32 && key <= 126 && static_cast<int>(name.size()) < MAX_NAME_LENGTH) {
+                name += static_cast<char>(key);
+            }
+        }
+        ui.errorMessage = "";
+        key = GetCharPressed();
+    }
+
+    if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) {
+        if (ui.selectedItem == 2 && !ui.typedText.empty()) {
+            ui.typedText.pop_back();
+        } else if (ui.selectedItem >= 3 && !ui.playerNames[ui.selectedItem - 3].empty()) {
+            ui.playerNames[ui.selectedItem - 3].pop_back();
+        }
+        ui.errorMessage = "";
+    }
+
+    if (IsKeyPressed(KEY_ENTER)) {
+        ui.errorMessage = getSetupError(ui);
+        if (ui.errorMessage.empty()) {
+            int size = 0;
+            parseWholeNumber(ui.typedText, size);
+            ui.chosenSize = size;
+            return PLAYING;
+        }
+    }
+    return MP_SETUP;
+}
+
 // Draws text split at spaces into lines no wider than maxWidth, each line under the
 // previous one. Returns nothing.
 void drawWrappedText(const std::string& text, int x, int y, int maxWidth, int fontSize,
@@ -379,7 +549,7 @@ Screen selectMenuItem(int selectedItem, UiState& ui) {
         case 0:
             return openCampaign(ui);
         case 1:
-            return MP_SETUP;
+            return openMultiplayerSetup(ui);
         case 2:
             return LEADERBOARD;
         case 3:
@@ -656,10 +826,7 @@ void drawBackScreen(Screen screen, const Textures& textures, const UiState& ui) 
 
     const char* heading = "Campaign";
     const char* message = "Campaign maze is not connected yet.";
-    if (screen == MP_SETUP) {
-        heading = "Multiplayer";
-        message = "Multiplayer is pending.";
-    } else if (screen == LEADERBOARD) {
+    if (screen == LEADERBOARD) {
         heading = "Leaderboard";
         message = "Leaderboard is pending.";
     } else if (screen == HOW_TO_PLAY) {
@@ -1028,6 +1195,70 @@ void drawResult(const GameState& game, const Textures& textures, const UiState& 
     drawButtonMenu(textures, ui, RESULT_ITEMS, RESULT_ITEM_COUNT, RESULT_BUTTON_Y);
 }
 
+// Draws the label of one setup row at y: a ">" marker and gold text when the row is
+// focused, otherwise white text.
+void drawSetupLabel(const char* text, int y, bool isFocused) {
+    if (isFocused) {
+        DrawText(">", 270, y, 26, GOLD);
+    }
+    DrawText(text, 300, y, 26, isFocused ? GOLD : RAYWHITE);
+}
+
+// Draws the multiplayer setup form: arena, player count, maze size, one row per player
+// with name and hero, the first error in red, a hint and the Back button.
+void drawMultiplayerSetup(const Textures& textures, const UiState& ui) {
+    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+
+    int headingWidth = MeasureText("Multiplayer", 38);
+    DrawText("Multiplayer", (SCREEN_WIDTH - headingWidth) / 2, 30, 38, GOLD);
+
+    std::string arenaName = "Arena " + std::to_string(ui.arenaId);
+    const Arena* arena = getArena(ui.arenaId);
+    if (arena != nullptr) {
+        arenaName = arena->name;
+    }
+    std::string arenaLabel = "Arena: < " + arenaName + " >";
+    drawSetupLabel(arenaLabel.c_str(), 100, ui.selectedItem == 0);
+    if (!isArenaOpen(ui, ui.arenaId)) {
+        int arenaWidth = MeasureText(arenaLabel.c_str(), 26);
+        DrawText(" (locked)", 300 + arenaWidth, 100, 26, GRAY);
+    }
+
+    std::string playersLabel = "Players: < " + std::to_string(ui.playerCount) + " >";
+    drawSetupLabel(playersLabel.c_str(), 150, ui.selectedItem == 1);
+
+    drawSetupLabel("Maze size (20 to 50):", 200, ui.selectedItem == 2);
+    drawTextInput(ui.typedText, 700, 192, 120, ui.selectedItem == 2, "");
+
+    for (int i = 0; i < ui.playerCount; i++) {
+        int y = 270 + i * 56;
+        bool isFocused = ui.selectedItem == 3 + i;
+        std::string playerLabel = "Player " + std::to_string(i + 1);
+        drawSetupLabel(playerLabel.c_str(), y, isFocused);
+        drawTextInput(ui.playerNames[i], 430, y - 8, 260, isFocused, "");
+        const Character* hero = getCharacter(ui.characters[i]);
+        if (hero != nullptr) {
+            std::string heroLabel = "< " + hero->name + " >";
+            DrawText(heroLabel.c_str(), 720, y, 24, RAYWHITE);
+        }
+    }
+
+    if (!ui.errorMessage.empty()) {
+        int errorWidth = MeasureText(ui.errorMessage.c_str(), 22);
+        DrawText(ui.errorMessage.c_str(), (SCREEN_WIDTH - errorWidth) / 2, 515, 22, RED);
+    }
+
+    const char* hint = "Up/Down: row   Left/Right: change   Enter: start   Esc: back";
+    int hintWidth = MeasureText(hint, 20);
+    DrawText(hint, (SCREEN_WIDTH - hintWidth) / 2, 550, 20, LIGHTGRAY);
+
+    bool isOverBack = isPointerOverButton(GetMousePosition(), BACK_BUTTON_X, BACK_BUTTON_Y,
+                                          BUTTON_WIDTH, BUTTON_HEIGHT);
+    drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
+                    ui.isMouseActive && isOverBack, false, textures);
+}
+
 // Handles the settings screen: switches Sound or Free Play and saves the settings.
 // Returns MAIN_MENU for Back or Esc, otherwise SETTINGS.
 Screen updateSettings(UiState& ui) {
@@ -1148,7 +1379,11 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
         return updateSettings(ui);
     }
 
-    if (screen == MP_SETUP || screen == LEADERBOARD || screen == HOW_TO_PLAY) {
+    if (screen == MP_SETUP) {
+        return updateMultiplayerSetup(ui);
+    }
+
+    if (screen == LEADERBOARD || screen == HOW_TO_PLAY) {
         return updateBackScreen(screen, ui);
     }
 
@@ -1176,7 +1411,9 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
         drawLevelIntro(textures, ui);
     } else if (screen == SETTINGS) {
         drawSettings(textures, ui);
-    } else if (screen == MP_SETUP || screen == LEADERBOARD || screen == HOW_TO_PLAY) {
+    } else if (screen == MP_SETUP) {
+        drawMultiplayerSetup(textures, ui);
+    } else if (screen == LEADERBOARD || screen == HOW_TO_PLAY) {
         drawBackScreen(screen, textures, ui);
     }
 }
