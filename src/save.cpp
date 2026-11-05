@@ -98,10 +98,125 @@ bool getBestResult(const std::string& name, int levelId, Result& best) {
     return false;
 }
 
-int loadWins(WinRecord[], int) { return 0; }
+// Reads valid win records from the save file and returns the number stored.
+int loadWins(WinRecord records[], int maxCount) {
+    if (records == nullptr || maxCount <= 0) {
+        return 0;
+    }
 
-bool addWin(const std::string&) { return false; }
+    std::ifstream input("save/wins.txt");
+    if (!input.is_open()) {
+        return 0;
+    }
 
-Settings loadSettings() { return Settings{}; }
+    int recordCount = 0;
+    std::string line;
+    while (recordCount < maxCount && std::getline(input, line)) {
+        std::istringstream lineStream(line);
+        WinRecord record;
+        std::string extra;
 
-bool saveSettings(const Settings&) { return false; }
+        if (!(lineStream >> record.name >> record.wins)) {
+            continue;
+        }
+        if (lineStream >> extra) {
+            continue;
+        }
+        if (record.wins < 1) {
+            continue;
+        }
+
+        records[recordCount] = record;
+        ++recordCount;
+    }
+
+    return recordCount;
+}
+
+// Adds a win for a player and saves all win records.
+bool addWin(const std::string& name) {
+    WinRecord records[MAX_RECORDS];
+    int recordCount = loadWins(records, MAX_RECORDS);
+    bool hasMatchingRecord = false;
+
+    for (int i = 0; i < recordCount; ++i) {
+        if (records[i].name == name) {
+            ++records[i].wins;
+            hasMatchingRecord = true;
+            break;
+        }
+    }
+
+    if (!hasMatchingRecord) {
+        if (recordCount >= MAX_RECORDS) {
+            return false;
+        }
+        records[recordCount].name = name;
+        records[recordCount].wins = 1;
+        ++recordCount;
+    }
+
+    std::filesystem::create_directories("save");
+    std::ofstream output("save/wins.txt");
+    if (!output.is_open()) {
+        return false;
+    }
+
+    for (int i = 0; i < recordCount; ++i) {
+        output << records[i].name << ' ' << records[i].wins << '\n';
+    }
+
+    return true;
+}
+
+// Loads sound and Free Play settings, using their defaults when unavailable.
+Settings loadSettings() {
+    Settings settings;
+    settings.isSoundOn = true;
+    settings.isFreePlay = false;
+
+    std::ifstream input("save/settings.txt");
+    if (!input.is_open()) {
+        return settings;
+    }
+
+    std::string line;
+    while (std::getline(input, line)) {
+        std::istringstream lineStream(line);
+        std::string word;
+        std::string extra;
+        int value;
+
+        if (!(lineStream >> word >> value)) {
+            continue;
+        }
+        if (lineStream >> extra) {
+            continue;
+        }
+        if (value != 0 && value != 1) {
+            continue;
+        }
+        if (word == "sound") {
+            settings.isSoundOn = (value == 1);
+        }
+        if (word == "freeplay") {
+            settings.isFreePlay = (value == 1);
+        }
+    }
+
+    return settings;
+}
+
+// Saves sound and Free Play settings to the settings file.
+bool saveSettings(const Settings& settings) {
+    std::filesystem::create_directories("save");
+    std::ofstream output("save/settings.txt");
+    if (!output.is_open()) {
+        return false;
+    }
+
+    output << "sound " << (settings.isSoundOn ? 1 : 0) << '\n';
+    output << "freeplay " << (settings.isFreePlay ? 1 : 0) << '\n';
+
+    return true;
+}
