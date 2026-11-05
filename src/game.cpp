@@ -349,3 +349,35 @@ void nextTurn(GameState& game) {
 
     game.stepsLeft = 3;
 }
+
+// Sets the winner to the first player at the exit, the last active player, or DRAW.
+void checkWinner(GameState& game) {
+    if (game.players == nullptr || game.playerCount == 0) {
+        return;
+    }
+
+    for (int i = 0; i < game.playerCount; i++) {
+        if (hasReachedExit(game.maze, game.players[i])) {
+            game.winner = i;
+            return;
+        }
+    }
+
+    int activePlayerCount = 0;
+    int activePlayerIndex = -1;
+    for (int i = 0; i < game.playerCount; i++) {
+        if (!game.players[i].isOut) {
+            activePlayerCount++;
+            activePlayerIndex = i;
+        }
+    }
+
+    if (activePlayerCount == 1) {
+        game.winner = activePlayerIndex;
+        return;
+    }
+    if (activePlayerCount == 0) {
+        game.winner = DRAW;
+        return;
+    }
+}
