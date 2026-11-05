@@ -108,7 +108,17 @@ bool tryMove(Maze& maze, Player& player, Direction direction) {
     return true;
 }
 
-int getStepCost(const Maze&, int, int) { return 0; }
+// Returns the cost to enter a cell, or 1 when the cell is outside the maze.
+int getStepCost(const Maze& maze, int row, int col) {
+    if (!isInside(maze, row, col)) {
+        return 1;
+    }
+
+    if (maze.cells[row][col].tile == WATER) {
+        return 2;
+    }
+    return 1;
+}
 
 // Advances campaign time and fuel, and moves at the shared walking interval.
 void updateCampaign(GameState& game, int heldDirection, float deltaTime) {
