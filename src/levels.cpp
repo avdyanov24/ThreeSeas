@@ -178,4 +178,13 @@ bool isCharacterUnlocked(CharacterId id, int highestEraEntered, bool isFreePlay)
     return highestEraEntered >= character->era;
 }
 
-bool isArenaUnlocked(int, int, bool) { return false; }
+// Returns whether an arena is open based on finished eras or Free Play.
+bool isArenaUnlocked(int arenaId, int erasFinished, bool isFreePlay) {
+    if (arenaId < 1 || arenaId > ARENA_COUNT) {
+        return false;
+    }
+    if (isFreePlay) {
+        return true;
+    }
+    return erasFinished >= arenaId;
+}
