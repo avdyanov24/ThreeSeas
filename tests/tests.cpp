@@ -538,6 +538,54 @@ void testCampaignStars(int& failures) {
     check("T15 size 10 at 71 seconds earns 1 star", calculateStars(10, 71.0f) == 1, failures);
 }
 
+// Checks multiplayer trap effects for another player, the owner, and LEVSKI.
+void testTrapEffects(int& failures) {
+    GameState game = createEmptyGame();
+    game.maze = createMovementTestMaze();
+    game.isMultiplayer = true;
+    Player players[3] = {};
+    game.players = players;
+    game.playerCount = 3;
+    players[0].character = KRUM;
+    players[1].character = KRUM;
+    players[2].character = LEVSKI;
+
+    game.maze.cells[1][1].tile = FLOOR;
+    game.maze.cells[1][1].item = NO_ITEM;
+    game.maze.cells[1][1].trapOwner = 0;
+    players[1].row = 1;
+    players[1].col = 1;
+    pickUpItem(game, players[1]);
+    check("T13 another player loses a turn to a trap", players[1].turnsToSkip == 1, failures);
+    check("T13 sprung trap is removed",
+          game.maze.cells[1][1].trapOwner == NO_TRAP, failures);
+
+    game.maze.cells[1][1].trapOwner = 0;
+    players[0].row = 1;
+    players[0].col = 1;
+    pickUpItem(game, players[0]);
+    check("T13 trap owner does not lose a turn", players[0].turnsToSkip == 0, failures);
+    check("T13 owner trap remains", game.maze.cells[1][1].trapOwner == 0, failures);
+
+    players[2].row = 1;
+    players[2].col = 1;
+    pickUpItem(game, players[2]);
+    check("T13 LEVSKI does not lose a turn", players[2].turnsToSkip == 0, failures);
+    check("T13 LEVSKI leaves the trap in place",
+          game.maze.cells[1][1].trapOwner == 0, failures);
+
+    destroyMaze(game.maze);
+}
+
+// Checks multiplayer step cost for a water cell and a floor cell.
+void testWaterStepCost(int& failures) {
+    Maze maze = createMovementTestMaze();
+    maze.cells[2][2].tile = WATER;
+    check("T14 water costs two steps", getStepCost(maze, 2, 2) == 2, failures);
+    check("T14 floor costs one step", getStepCost(maze, 1, 1) == 1, failures);
+    destroyMaze(maze);
+}
+
 // Prints the test summary and returns failure when any check fails.
 int main() {
 	int failures = 0;
@@ -557,6 +605,8 @@ int main() {
     testTorchRadius(failures);
     testTorchOut(failures);
     testCampaignStars(failures);
+    testTrapEffects(failures);
+    testWaterStepCost(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";
