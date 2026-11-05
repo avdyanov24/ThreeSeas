@@ -320,6 +320,64 @@ int calculateStars(int size, float seconds) {
     return 1;
 }
 
-void nextTurn(GameState&) {}
+// Burns the current player's fuel and advances to the next player who can take a turn.
+void nextTurn(GameState& game) {
+    if (game.players == nullptr || game.playerCount == 0) {
+        return;
+    }
 
-void checkWinner(GameState&) {}
+    float fuelCost = 1.0f;
+    if (game.level != nullptr && game.level->isCold) {
+        fuelCost = 2.0f;
+    }
+    burnFuel(game.players[game.currentPlayer], fuelCost);
+
+    for (int i = 1; i <= 2 * game.playerCount; i++) {
+        int index = (game.currentPlayer + i) % game.playerCount;
+        Player& player = game.players[index];
+        if (player.isOut) {
+            continue;
+        }
+        if (player.turnsToSkip > 0) {
+            player.turnsToSkip--;
+            continue;
+        }
+
+        game.currentPlayer = index;
+        break;
+    }
+
+    game.stepsLeft = 3;
+}
+
+// Sets the winner to the first player at the exit, the last active player, or DRAW.
+void checkWinner(GameState& game) {
+    if (game.players == nullptr || game.playerCount == 0) {
+        return;
+    }
+
+    for (int i = 0; i < game.playerCount; i++) {
+        if (hasReachedExit(game.maze, game.players[i])) {
+            game.winner = i;
+            return;
+        }
+    }
+
+    int activePlayerCount = 0;
+    int activePlayerIndex = -1;
+    for (int i = 0; i < game.playerCount; i++) {
+        if (!game.players[i].isOut) {
+            activePlayerCount++;
+            activePlayerIndex = i;
+        }
+    }
+
+    if (activePlayerCount == 1) {
+        game.winner = activePlayerIndex;
+        return;
+    }
+    if (activePlayerCount == 0) {
+        game.winner = DRAW;
+        return;
+    }
+}
