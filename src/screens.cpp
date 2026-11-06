@@ -41,9 +41,37 @@ const int MP_RESULT_BUTTON_Y = 440;
 const char* const MP_RESULT_ITEMS[MP_RESULT_ITEM_COUNT] = {"Rematch", "Menu"};
 const int ERA_COUNT = 3;
 const int PINS_PER_ERA = 3;
-const int PIN_RADIUS = 40;
-const int PIN_Y = 360;
-const int PIN_X[PINS_PER_ERA] = {340, 640, 940};
+const int PIN_RADIUS = 36;
+const int PIN_SIZE = 64;
+// Where each maze pin stands on its era map: PIN_POSITIONS[era - 1][pin] = {x, y}
+const int PIN_POSITIONS[ERA_COUNT][PINS_PER_ERA][2] = {
+    {{790, 240}, {600, 420}, {700, 305}},
+    {{650, 270}, {820, 240}, {610, 430}},
+    {{560, 310}, {700, 400}, {830, 265}}};
+const int HOWTO_ROWS = 9;
+const char* const HOWTO_CAMPAIGN_TEXT[HOWTO_ROWS] = {
+    "Your torch lights the maze around you.",
+    "Fuel burns with time. At zero the torch dies.",
+    "Oil refills 25% of your fuel.",
+    "Press M to read a Map of the area around you.",
+    "Pick up the key to open doors.",
+    "Doors stay shut without the key.",
+    "Water slows you down.",
+    "Traps freeze you for 2 seconds.",
+    "Finish fast for up to 3 stars."};
+const char* const HOWTO_MULTIPLAYER_TEXT[HOWTO_ROWS] = {
+    "Find the hidden exit before the others.",
+    "Each turn has a time limit. Hold arrows to walk.",
+    "Press 1 to use a Map.",
+    "Press 2 to place a Trap under your feet.",
+    "Press Enter to end your turn early.",
+    "Pass the laptop between turns, no peeking.",
+    "Cold arenas burn your torch twice as fast.",
+    "Levski is immune to traps.",
+    "First to the exit wins, or the last torch lit."};
+const HowToIcon HOWTO_MULTIPLAYER_ICONS[HOWTO_ROWS] = {
+    HOWTO_EXIT,      HOWTO_CLOCK,       HOWTO_KEY_ONE, HOWTO_KEY_TWO, HOWTO_KEY_ENTER,
+    HOWTO_PASS_LAPTOP, HOWTO_COLD,      HOWTO_SHIELD,  HOWTO_TROPHY};
 const int ERA_TAB_Y = 100;
 // Three tabs fill the screen width, so a tab that slides out ends fully off-screen
 const int ERA_TAB_WIDTH = BUTTON_NATIVE_WIDTH * 13;
@@ -53,7 +81,7 @@ const float ERA_TAB_SIDE_SCALE = 0.8f;
 const float PIN_RING_FADE_SPEED = 4.0f;
 const float ERA_SPIN_SECONDS = 0.55f;
 const float PIN_FADE_SECONDS = 1.3f;
-const float PIN_SELECTED_GROWTH = 0.2f;
+const float PIN_SELECTED_GROWTH = 0.35f;
 const char* const ERA_TAB_LABELS[ERA_COUNT] = {"Era I", "Era II", "Era III"};
 
 // Tests whether the pointer is inside a button's screen rectangle.
@@ -100,6 +128,47 @@ void drawScreenBackground(const Texture2D& texture, Color fallbackColor) {
     } else {
         ClearBackground(fallbackColor);
     }
+}
+
+// Draws a dark panel with a gold double border behind a block of text. Returns nothing.
+void drawPanel(int x, int y, int width, int height) {
+    Rectangle outer = {static_cast<float>(x), static_cast<float>(y), static_cast<float>(width),
+                       static_cast<float>(height)};
+    DrawRectangleRec(outer, Color{14, 10, 14, 215});
+    DrawRectangleLinesEx(outer, 3.0f, Color{110, 78, 40, 255});
+    Rectangle inner = {outer.x + 6.0f, outer.y + 6.0f, outer.width - 12.0f,
+                       outer.height - 12.0f};
+    DrawRectangleLinesEx(inner, 1.0f, Color{200, 150, 60, 255});
+}
+
+// Draws text centred on centerX with a dark plate behind it, so it stays readable over
+// art. alpha (0 to 1) fades the plate and the text. Returns nothing.
+void drawTextPlate(const char* text, int centerX, int y, int fontSize, Color color,
+                   float alpha = 1.0f) {
+    int width = MeasureText(text, fontSize);
+    Rectangle plate = {static_cast<float>(centerX - width / 2 - 14), static_cast<float>(y - 6),
+                       static_cast<float>(width + 28), static_cast<float>(fontSize + 12)};
+    DrawRectangleRec(plate, Fade(Color{0, 0, 0, 175}, alpha));
+    DrawRectangleLinesEx(plate, 2.0f, Fade(Color{110, 78, 40, 255}, alpha));
+    DrawText(text, centerX - width / 2, y, fontSize, Fade(color, alpha));
+}
+
+// Draws a square picture of the given size with its top-left corner at (x, y).
+void drawIcon(const Texture2D& texture, int x, int y, int size) {
+    if (texture.id == 0) {
+        return;
+    }
+    Rectangle source = {0.0f, 0.0f, static_cast<float>(texture.width),
+                        static_cast<float>(texture.height)};
+    Rectangle destination = {static_cast<float>(x), static_cast<float>(y),
+                             static_cast<float>(size), static_cast<float>(size)};
+    DrawTexturePro(texture, source, destination, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+}
+
+// Returns the screen position of the centre of a pin (0 to 2) on the map of an era (1 to 3).
+Vector2 getPinCenter(int era, int pin) {
+    return Vector2{static_cast<float>(PIN_POSITIONS[era - 1][pin][0]),
+                   static_cast<float>(PIN_POSITIONS[era - 1][pin][1])};
 }
 
 // Returns the next menu index, wrapping around in the requested direction.
@@ -543,6 +612,46 @@ Screen updateLevelIntro(UiState& ui) {
     return LEVEL_INTRO;
 }
 
+// Reads the save files for the leaderboard: the fastest result of every level and the
+// players with the most multiplayer wins. Returns LEADERBOARD.
+Screen openLeaderboard(UiState& ui) {
+    ui.selectedItem = 0;
+    Result results[MAX_RECORDS];
+    int resultCount = loadResults(results, MAX_RECORDS);
+    for (int i = 0; i < LEVEL_COUNT; i++) {
+        ui.hasLevelBest[i] = false;
+    }
+    for (int i = 0; i < resultCount; i++) {
+        int index = results[i].levelId - 1;
+        if (index < 0 || index >= LEVEL_COUNT) {
+            continue;
+        }
+        if (!ui.hasLevelBest[index] || results[i].bestSeconds < ui.levelBest[index].bestSeconds) {
+            ui.levelBest[index] = results[i];
+            ui.hasLevelBest[index] = true;
+        }
+    }
+
+    WinRecord wins[MAX_RECORDS];
+    int winCount = loadWins(wins, MAX_RECORDS);
+    ui.topWinCount = 0;
+    while (ui.topWinCount < LEADERBOARD_WINS) {
+        int bestIndex = -1;
+        for (int i = 0; i < winCount; i++) {
+            if (wins[i].wins > 0 && (bestIndex == -1 || wins[i].wins > wins[bestIndex].wins)) {
+                bestIndex = i;
+            }
+        }
+        if (bestIndex == -1) {
+            break;
+        }
+        ui.topWins[ui.topWinCount] = wins[bestIndex];
+        ui.topWinCount++;
+        wins[bestIndex].wins = 0;
+    }
+    return LEADERBOARD;
+}
+
 // Prepares the settings screen with the first button selected. Returns SETTINGS.
 Screen openSettings(UiState& ui) {
     ui.selectedItem = 0;
@@ -558,7 +667,7 @@ Screen selectMenuItem(int selectedItem, UiState& ui) {
         case 1:
             return openMultiplayerSetup(ui);
         case 2:
-            return LEADERBOARD;
+            return openLeaderboard(ui);
         case 3:
             return HOW_TO_PLAY;
         case 4:
@@ -631,7 +740,7 @@ Screen updateCampaignMap(UiState& ui) {
     if (ui.isMouseActive) {
         ui.selectedItem = -1;
         for (int i = 0; i < PINS_PER_ERA; i++) {
-            Vector2 center = {static_cast<float>(PIN_X[i]), static_cast<float>(PIN_Y)};
+            Vector2 center = getPinCenter(ui.selectedEra, i);
             if (CheckCollisionPointCircle(pointer, center, static_cast<float>(PIN_RADIUS))) {
                 ui.selectedItem = i;
                 break;
@@ -783,15 +892,19 @@ void drawNameEntry(const Textures& textures, const UiState& ui) {
     drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
     DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
 
+    drawPanel(340, 150, 600, 360);
     const char* heading = "Enter your name";
     int headingWidth = MeasureText(heading, 38);
-    DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 200, 38, GOLD);
+    DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 190, 38, GOLD);
+    const char* rule = "1 to 12 letters, numbers or _";
+    int ruleWidth = MeasureText(rule, 20);
+    DrawText(rule, (SCREEN_WIDTH - ruleWidth) / 2, 250, 20, LIGHTGRAY);
 
     drawTextInput(ui.typedText, (SCREEN_WIDTH - 400) / 2, 300, 400, true, ui.errorMessage);
 
     const char* hint = "Press Enter to continue";
     int hintWidth = MeasureText(hint, 24);
-    DrawText(hint, (SCREEN_WIDTH - hintWidth) / 2, 420, 24, RAYWHITE);
+    DrawText(hint, (SCREEN_WIDTH - hintWidth) / 2, 450, 24, RAYWHITE);
 
     drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
                     ui.selectedItem == 0, false, textures);
@@ -800,8 +913,8 @@ void drawNameEntry(const Textures& textures, const UiState& ui) {
 // Draws the title screen and its route into the main menu.
 void drawTitleScreen(const Textures& textures, const UiState& ui) {
     drawScreenBackground(textures.titleScreen, Color{12, 10, 16, 255});
-    DrawText("Press Enter to continue", 440, 560, 24, RAYWHITE);
-    drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
+    drawTextPlate("Press Enter to continue", SCREEN_WIDTH / 2, 540, 24, RAYWHITE);
+    drawButtonStyle("Start", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
                     ui.selectedItem == 0, false, textures);
 }
 
@@ -826,25 +939,79 @@ void drawMainMenu(const Textures& textures, const UiState& ui) {
     }
 }
 
-// Draws the campaign connection point or a pending screen with a Back button.
-void drawBackScreen(Screen screen, const Textures& textures, const UiState& ui) {
+// Draws the leaderboard: the fastest result of every level on the left and the players
+// with the most multiplayer wins on the right, then the Back button.
+void drawLeaderboard(const Textures& textures, const UiState& ui) {
     drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
     DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+    drawTextPlate("Leaderboard", SCREEN_WIDTH / 2, 24, 38, GOLD);
 
-    const char* heading = "Campaign";
-    const char* message = "Campaign maze is not connected yet.";
-    if (screen == LEADERBOARD) {
-        heading = "Leaderboard";
-        message = "Leaderboard is pending.";
-    } else if (screen == HOW_TO_PLAY) {
-        heading = "How to Play";
-        message = "How to Play is pending.";
+    drawPanel(60, 90, 600, 470);
+    drawPanel(700, 90, 520, 470);
+
+    DrawText("Fastest times", 84, 106, 26, GOLD);
+    for (int i = 0; i < LEVEL_COUNT; i++) {
+        int y = 156 + i * 44;
+        DrawText(TextFormat("%d  %s", i + 1, getLevel(i + 1)->place.c_str()), 84, y, 22,
+                 RAYWHITE);
+        if (!ui.hasLevelBest[i]) {
+            DrawText("no result yet", 330, y + 2, 20, GRAY);
+            continue;
+        }
+        const Result& best = ui.levelBest[i];
+        int seconds = static_cast<int>(best.bestSeconds);
+        DrawText(TextFormat("%s  %02d:%02d", best.name.c_str(), seconds / 60, seconds % 60),
+                 330, y + 2, 20, GOLD);
+        for (int star = 0; star < 3; star++) {
+            const Texture2D& icon = star < best.stars ? textures.starFilled
+                                                      : textures.starEmpty;
+            drawIcon(icon, 560 + star * 30, y - 2, 28);
+        }
     }
 
-    int headingWidth = MeasureText(heading, 38);
-    int messageWidth = MeasureText(message, 24);
-    DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 250, 38, GOLD);
-    DrawText(message, (SCREEN_WIDTH - messageWidth) / 2, 330, 24, RAYWHITE);
+    DrawText("Most wins", 724, 106, 26, GOLD);
+    if (ui.topWinCount == 0) {
+        DrawText("No multiplayer wins yet.", 724, 160, 22, GRAY);
+    }
+    for (int i = 0; i < ui.topWinCount; i++) {
+        int y = 156 + i * 52;
+        DrawText(TextFormat("%d", i + 1), 724, y, 26, i == 0 ? GOLD : RAYWHITE);
+        DrawText(ui.topWins[i].name.c_str(), 770, y, 26, RAYWHITE);
+        const char* count =
+            TextFormat(ui.topWins[i].wins == 1 ? "%d win" : "%d wins", ui.topWins[i].wins);
+        DrawText(count, 1180 - MeasureText(count, 24), y + 2, 24, GOLD);
+    }
+
+    drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
+                    ui.selectedItem == 0, false, textures);
+}
+
+// Draws the How to Play screen: the campaign rules on the left, the multiplayer rules on
+// the right, each with a small picture, then the Back button.
+void drawHowToPlay(const Textures& textures, const UiState& ui) {
+    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+    drawTextPlate("How to Play", SCREEN_WIDTH / 2, 14, 38, GOLD);
+    drawPanel(30, 72, 610, 500);
+    drawPanel(660, 72, 590, 500);
+
+    const Texture2D* campaignIcons[HOWTO_ROWS] = {
+        &textures.howTo[HOWTO_TORCH], &textures.howTo[HOWTO_TORCH_BAR],
+        &textures.howTo[HOWTO_OIL],   &textures.howTo[HOWTO_MAP],
+        &textures.key,                &textures.howTo[HOWTO_DOOR],
+        &textures.howTo[HOWTO_WATER], &textures.howTo[HOWTO_TRAP],
+        &textures.howTo[HOWTO_STARS]};
+
+    DrawText("Campaign (one player)", 56, 90, 26, GOLD);
+    DrawText("Multiplayer (2 to 4 players)", 686, 90, 26, GOLD);
+    for (int i = 0; i < HOWTO_ROWS; i++) {
+        int y = 138 + i * 47;
+        drawIcon(*campaignIcons[i], 56, y - 4, 40);
+        DrawText(HOWTO_CAMPAIGN_TEXT[i], 112, y + 6, 19, RAYWHITE);
+        drawIcon(textures.howTo[HOWTO_MULTIPLAYER_ICONS[i]], 686, y - 4, 40);
+        DrawText(HOWTO_MULTIPLAYER_TEXT[i], 742, y + 6, 19, RAYWHITE);
+    }
+
     drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
                     ui.selectedItem == 0, false, textures);
 }
@@ -861,10 +1028,11 @@ void drawLevelIntro(const Textures& textures, const UiState& ui) {
         heading = TextFormat("%s - %d", level.place.c_str(), level.year);
     }
     int headingWidth = MeasureText(heading, 44);
-    DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 50, 44, GOLD);
-
+    DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 36, 44, GOLD);
     int eraWidth = MeasureText(level.era.c_str(), 24);
-    DrawText(level.era.c_str(), (SCREEN_WIDTH - eraWidth) / 2, 110, 24, RAYWHITE);
+    DrawText(level.era.c_str(), (SCREEN_WIDTH - eraWidth) / 2, 94, 24, RAYWHITE);
+
+    drawPanel(140, 140, 1000, 390);
 
     const char* difficulty = "Difficulty: Easy";
     if (level.difficulty == 2) {
@@ -872,35 +1040,35 @@ void drawLevelIntro(const Textures& textures, const UiState& ui) {
     } else if (level.difficulty == 3) {
         difficulty = "Difficulty: Hard";
     }
-    DrawText(difficulty, 140, 160, 24, RAYWHITE);
+    DrawText(difficulty, 180, 168, 24, RAYWHITE);
 
     Result best = {};
     if (getBestResult(ui.playerName, level.id, best)) {
-        DrawText(TextFormat("Best: %d stars", best.stars), 140, 195, 24, GOLD);
+        DrawText(TextFormat("Best: %d stars", best.stars), 900, 168, 24, GOLD);
     } else {
-        DrawText("Not finished yet", 140, 195, 24, GRAY);
+        DrawText("Not finished yet", 900, 168, 24, GRAY);
     }
 
-    drawWrappedText(level.funFact, 140, 250, 1000, 26, RAYWHITE);
+    drawWrappedText(level.funFact, 180, 220, 920, 26, RAYWHITE);
+
+    DrawLine(180, 350, 1100, 350, Color{110, 78, 40, 255});
 
     const Texture2D& portrait = textures.heroes[ui.characters[0]].portrait;
-    if (portrait.id != 0) {
-        DrawTexture(portrait, 140, 380, WHITE);
-    }
+    drawIcon(portrait, 180, 372, 100);
     const Character* hero = getCharacter(ui.characters[0]);
-    DrawText(hero->name.c_str(), 290, 390, 28, GOLD);
-    DrawText(hero->power.c_str(), 290, 430, 22, RAYWHITE);
+    DrawText(hero->name.c_str(), 300, 376, 28, GOLD);
+    DrawText(hero->power.c_str(), 300, 414, 22, RAYWHITE);
     if (ui.characters[0] == getSuggestedHero(ui.selectedLevel)) {
-        DrawText("(suggested)", 290, 465, 20, LIGHTGRAY);
+        DrawText("(suggested)", 300, 446, 20, LIGHTGRAY);
     }
-    DrawText("Left/Right: change hero", 290, 490, 20, LIGHTGRAY);
+    DrawText("Left/Right: change hero", 300, 480, 20, LIGHTGRAY);
 
-    DrawText("Maze size (10 to 50):", 760, 390, 24, RAYWHITE);
-    drawTextInput(ui.typedText, 760, 430, 200, true, ui.errorMessage);
+    DrawText("Maze size (10 to 50):", 800, 376, 24, RAYWHITE);
+    drawTextInput(ui.typedText, 800, 414, 200, true, ui.errorMessage);
 
     const char* hint = "Enter: start   Esc: back";
     int hintWidth = MeasureText(hint, 22);
-    DrawText(hint, (SCREEN_WIDTH - hintWidth) / 2, 545, 22, LIGHTGRAY);
+    DrawText(hint, (SCREEN_WIDTH - hintWidth) / 2, 548, 22, LIGHTGRAY);
 
     drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
                     ui.selectedItem == 0, false, textures);
@@ -910,71 +1078,60 @@ void drawLevelIntro(const Textures& textures, const UiState& ui) {
 // with its number, place name, status and a white ring when it is selected. The
 // selected pin smoothly grows bigger than the others. alpha (0 to 1) fades the whole
 // pin in after an era switch.
-void drawCampaignPin(const UiState& ui, int pin, float alpha) {
+void drawCampaignPin(const Textures& textures, const UiState& ui, int pin, float alpha) {
     int levelId = getLevelIdOfPin(ui.selectedEra, pin);
     const Level* level = getLevel(levelId);
-    int x = PIN_X[pin];
+    Vector2 center = getPinCenter(ui.selectedEra, pin);
     bool isOpen = isPinOpen(ui, levelId);
     Result best = {};
     bool isFinished = getBestResult(ui.playerName, levelId, best);
 
     // selection goes from 0 (not selected) to 1 (selected) over a few frames
     float selection = getPinRingAlpha(pin, ui.selectedItem == pin);
-    float scale = 1.0f + PIN_SELECTED_GROWTH * selection;
-    // the text under the pin moves down as the pin grows, so they never overlap
-    int textShift = static_cast<int>(90.0f * (scale - 1.0f));
+    float growth = 1.0f + PIN_SELECTED_GROWTH * selection;
+    int size = static_cast<int>(static_cast<float>(PIN_SIZE) * growth);
 
-    Color pinColor = Color{90, 90, 90, 255};
+    int frame = static_cast<int>(GetTime() * 6.0) % PIN_FRAMES;
+    const Texture2D* pinTexture = &textures.pinLocked[frame];
     if (isFinished) {
-        pinColor = GOLD;
+        pinTexture = &textures.pinFinished[frame];
     } else if (isOpen) {
-        pinColor = ORANGE;
+        pinTexture = &textures.pinOpen[frame];
     }
-    if (isOpen || isFinished) {
-        DrawCircle(x, PIN_Y, 50.0f * scale, Fade(pinColor, 0.35f * alpha));
-    }
-    DrawCircle(x, PIN_Y, PIN_RADIUS * scale, Fade(pinColor, alpha));
-
-    const char* number = TextFormat("%d", levelId);
-    int numberSize = static_cast<int>(28.0f * scale);
-    int numberWidth = MeasureText(number, numberSize);
-    DrawText(number, x - numberWidth / 2, PIN_Y - numberSize / 2, numberSize,
-             Fade(BLACK, alpha));
-
-    const char* place = level->place.c_str();
-    int placeWidth = MeasureText(place, 22);
-    DrawText(place, x - placeWidth / 2, PIN_Y + 66 + textShift, 22, Fade(RAYWHITE, alpha));
-
-    if (isFinished) {
-        const char* stars = TextFormat("Stars: %d", best.stars);
-        int starsWidth = MeasureText(stars, 18);
-        DrawText(stars, x - starsWidth / 2, PIN_Y + 96 + textShift, 18, Fade(GOLD, alpha));
-    } else if (!isOpen) {
-        int lockedWidth = MeasureText("Locked", 18);
-        DrawText("Locked", x - lockedWidth / 2, PIN_Y + 96 + textShift, 18,
-                 Fade(GRAY, alpha));
-    }
-
     float ringAlpha = selection * alpha;
     if (ringAlpha > 0.0f) {
         // pulse goes smoothly from 0 to 1 and back, about once every 1.8 seconds
         float pulse = (sinf(static_cast<float>(GetTime()) * 3.5f) + 1.0f) / 2.0f;
-        Vector2 center = {static_cast<float>(x), static_cast<float>(PIN_Y)};
-        float outerRadius = (57.0f + pulse * 3.0f) * scale;
-        DrawRing(center, outerRadius, outerRadius + 6.0f, 0.0f, 360.0f, 64,
-                 Fade(RAYWHITE, 0.25f * (1.0f - pulse) * ringAlpha));
-        DrawRing(center, outerRadius - 5.0f, outerRadius, 0.0f, 360.0f, 64,
-                 Fade(RAYWHITE, (0.75f + 0.25f * pulse) * ringAlpha));
+        float outerRadius = static_cast<float>(size) / 2.0f + 8.0f + pulse * 4.0f;
+        DrawRing(center, outerRadius, outerRadius + 4.0f, 0.0f, 360.0f, 64,
+                 Fade(RAYWHITE, (0.5f + 0.4f * (1.0f - pulse)) * ringAlpha));
+    }
+    drawIcon(*pinTexture, static_cast<int>(center.x) - size / 2,
+             static_cast<int>(center.y) - size / 2, size);
+
+    int labelX = static_cast<int>(center.x);
+    int labelY = static_cast<int>(center.y) + size / 2 + 10;
+    drawTextPlate(TextFormat("%d. %s", levelId, level->place.c_str()), labelX, labelY, 20,
+                  RAYWHITE, alpha);
+    if (isFinished) {
+        drawTextPlate(TextFormat("Stars: %d", best.stars), labelX, labelY + 34, 18, GOLD,
+                      alpha);
+    } else if (!isOpen) {
+        drawTextPlate("Locked", labelX, labelY + 34, 18, GRAY, alpha);
     }
 }
 
 // Draws the campaign map: era tabs, the era name, three pins, a hint and Back.
 void drawCampaignMap(const Textures& textures, const UiState& ui) {
-    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
-    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+    int mapIndex = ui.selectedEra - 1;
+    if (mapIndex >= 0 && mapIndex < ERA_MAP_COUNT && textures.eraMaps[mapIndex].id != 0) {
+        drawScreenBackground(textures.eraMaps[mapIndex], Color{12, 10, 16, 255});
+    } else {
+        drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+    }
 
-    int headingWidth = MeasureText("Campaign", 38);
-    DrawText("Campaign", (SCREEN_WIDTH - headingWidth) / 2, 40, 38, GOLD);
+    drawTextPlate("Campaign", SCREEN_WIDTH / 2, 36, 38, GOLD);
 
     int previousEra = ui.selectedEra;
     float secondsSinceSwitch = getTimeSinceEraSwitch(ui.selectedEra, previousEra);
@@ -1005,17 +1162,15 @@ void drawCampaignMap(const Textures& textures, const UiState& ui) {
     }
 
     const char* eraName = getLevel(getLevelIdOfPin(ui.selectedEra, 0))->era.c_str();
-    int eraWidth = MeasureText(eraName, 26);
-    DrawText(eraName, (SCREEN_WIDTH - eraWidth) / 2, 200, 26, Fade(RAYWHITE, fadeProgress));
+    drawTextPlate(eraName, 330, 188, 26, RAYWHITE, fadeProgress);
 
     for (int pin = 0; pin < PINS_PER_ERA; pin++) {
-        drawCampaignPin(ui, pin, fadeProgress);
+        drawCampaignPin(textures, ui, pin, fadeProgress);
     }
 
     const char* hint =
         "Left/Right: choose maze   Up/Down: change era   Enter: open   Esc: back";
-    int hintWidth = MeasureText(hint, 20);
-    DrawText(hint, (SCREEN_WIDTH - hintWidth) / 2, 520, 20, LIGHTGRAY);
+    drawTextPlate(hint, SCREEN_WIDTH / 2, 545, 20, LIGHTGRAY);
 
     bool isBackHovered = isPointerOverButton(GetMousePosition(), BACK_BUTTON_X,
                                              BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT);
@@ -1180,33 +1335,29 @@ Screen updateResult(GameState& game, UiState& ui) {
 // Draws the result of the level: on a win the stars, time and best time, otherwise
 // "Your torch went out", and the Play again and Back to map buttons.
 void drawResult(const GameState& game, const Textures& textures, const UiState& ui) {
-    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
-    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
-
     bool isWin = ui.resultStars > 0;
+    drawScreenBackground(isWin ? textures.resultWin : textures.resultLose,
+                         Color{12, 10, 16, 255});
+
     const char* heading = isWin ? "Maze complete!" : "Your torch went out";
-    int headingWidth = MeasureText(heading, 38);
-    DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 130, 38, isWin ? GOLD : RED);
+    drawTextPlate(heading, SCREEN_WIDTH / 2, 100, 38, isWin ? GOLD : RED);
 
     if (isWin) {
-        const float starX[3] = {540.0f, 640.0f, 740.0f};
         for (int i = 0; i < 3; i++) {
-            Color starColor = i + 1 <= ui.resultStars ? GOLD : Color{70, 60, 60, 255};
-            DrawPoly(Vector2{starX[i], 250.0f}, 4, 36.0f, 45.0f, starColor);
+            const Texture2D& star = i + 1 <= ui.resultStars ? textures.starFilled
+                                                            : textures.starEmpty;
+            drawIcon(star, SCREEN_WIDTH / 2 - 120 + i * 80, 170, 80);
         }
 
         int seconds = static_cast<int>(ui.resultSeconds);
-        const char* timeText = TextFormat("Time: %02d:%02d", seconds / 60, seconds % 60);
-        int timeWidth = MeasureText(timeText, 28);
-        DrawText(timeText, (SCREEN_WIDTH - timeWidth) / 2, 330, 28, RAYWHITE);
+        drawTextPlate(TextFormat("Time: %02d:%02d", seconds / 60, seconds % 60),
+                      SCREEN_WIDTH / 2, 280, 28, RAYWHITE);
 
         Result best = {};
         if (game.level != nullptr && getBestResult(ui.playerName, game.level->id, best)) {
             int bestSeconds = static_cast<int>(best.bestSeconds);
-            const char* bestTime =
-                TextFormat("Best time: %02d:%02d", bestSeconds / 60, bestSeconds % 60);
-            int bestWidth = MeasureText(bestTime, 28);
-            DrawText(bestTime, (SCREEN_WIDTH - bestWidth) / 2, 370, 28, RAYWHITE);
+            drawTextPlate(TextFormat("Best time: %02d:%02d", bestSeconds / 60, bestSeconds % 60),
+                          SCREEN_WIDTH / 2, 336, 28, RAYWHITE);
         }
     }
 
@@ -1229,7 +1380,8 @@ void drawMultiplayerSetup(const Textures& textures, const UiState& ui) {
     DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
 
     int headingWidth = MeasureText("Multiplayer", 38);
-    DrawText("Multiplayer", (SCREEN_WIDTH - headingWidth) / 2, 30, 38, GOLD);
+    DrawText("Multiplayer", (SCREEN_WIDTH - headingWidth) / 2, 24, 38, GOLD);
+    drawPanel(200, 76, 880, 450);
 
     std::string arenaName = "Arena " + std::to_string(ui.arenaId);
     const Arena* arena = getArena(ui.arenaId);
@@ -1237,10 +1389,21 @@ void drawMultiplayerSetup(const Textures& textures, const UiState& ui) {
         arenaName = arena->name;
     }
     std::string arenaLabel = "Arena: < " + arenaName + " >";
-    drawSetupLabel(arenaLabel.c_str(), 100, ui.selectedItem == 0);
+    drawSetupLabel(arenaLabel.c_str(), 96, ui.selectedItem == 0);
     if (!isArenaOpen(ui, ui.arenaId)) {
         int arenaWidth = MeasureText(arenaLabel.c_str(), 26);
-        DrawText(" (locked)", 300 + arenaWidth, 100, 26, GRAY);
+        DrawText(" (locked)", 300 + arenaWidth, 96, 26, GRAY);
+    }
+
+    if (arena != nullptr) {
+        std::string traits = "Traps, doors and keys";
+        if (arena->hasWater) {
+            traits += ", water";
+        }
+        if (arena->isCold) {
+            traits += ", cold (torch burns twice as fast)";
+        }
+        DrawText(traits.c_str(), 300, 128, 18, LIGHTGRAY);
     }
 
     std::string playersLabel = "Players: < " + std::to_string(ui.playerCount) + " >";
@@ -1369,8 +1532,8 @@ Screen updateMultiplayerGame(GameState& game, UiState& ui, float deltaTime) {
 }
 
 // Draws the black pass screen with the name of the player whose turn comes next.
-void drawPassScreen(const GameState& game) {
-    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, BLACK);
+void drawPassScreen(const GameState& game, const Textures& textures) {
+    drawScreenBackground(textures.passScreen, BLACK);
 
     std::string message = "Pass the laptop.";
     if (game.players != nullptr && game.currentPlayer >= 0 &&
@@ -1378,10 +1541,14 @@ void drawPassScreen(const GameState& game) {
         message = "Pass to " + game.players[game.currentPlayer].name + ".";
     }
     int messageWidth = MeasureText(message.c_str(), 44);
-    DrawText(message.c_str(), (SCREEN_WIDTH - messageWidth) / 2, 290, 44, GOLD);
+    int messageX = (SCREEN_WIDTH - messageWidth) / 2;
+    DrawText(message.c_str(), messageX + 3, 83, 44, BLACK);
+    DrawText(message.c_str(), messageX, 80, 44, GOLD);
 
     int enterWidth = MeasureText("Press Enter.", 28);
-    DrawText("Press Enter.", (SCREEN_WIDTH - enterWidth) / 2, 370, 28, RAYWHITE);
+    int enterX = (SCREEN_WIDTH - enterWidth) / 2;
+    DrawText("Press Enter.", enterX + 2, 622, 28, BLACK);
+    DrawText("Press Enter.", enterX, 620, 28, RAYWHITE);
 }
 
 // Handles the multiplayer result screen. Returns PLAYING for Rematch (after the game is
@@ -1409,23 +1576,18 @@ Screen updateMultiplayerResult(GameState& game, UiState& ui) {
 // Draws the multiplayer result: the winner and their hero, or a draw, and the Rematch
 // and Menu buttons.
 void drawMultiplayerResult(const GameState& game, const Textures& textures, const UiState& ui) {
-    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
-    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+    drawScreenBackground(textures.multiplayerResult, Color{12, 10, 16, 255});
 
     if (game.players != nullptr && game.winner >= 0 && game.winner < game.playerCount) {
         const Player& winner = game.players[game.winner];
         std::string heading = winner.name + " wins!";
-        int headingWidth = MeasureText(heading.c_str(), 38);
-        DrawText(heading.c_str(), (SCREEN_WIDTH - headingWidth) / 2, 200, 38, GOLD);
+        drawTextPlate(heading.c_str(), SCREEN_WIDTH / 2, 120, 40, GOLD);
         const Character* hero = getCharacter(winner.character);
         if (hero != nullptr) {
-            int heroWidth = MeasureText(hero->name.c_str(), 28);
-            DrawText(hero->name.c_str(), (SCREEN_WIDTH - heroWidth) / 2, 270, 28, RAYWHITE);
+            drawTextPlate(hero->name.c_str(), SCREEN_WIDTH / 2, 190, 28, RAYWHITE);
         }
     } else if (game.winner == DRAW) {
-        const char* heading = "Draw: all torches went out";
-        int headingWidth = MeasureText(heading, 38);
-        DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 200, 38, RED);
+        drawTextPlate("Draw: all torches went out", SCREEN_WIDTH / 2, 120, 40, RED);
     }
 
     drawButtonMenu(textures, ui, MP_RESULT_ITEMS, MP_RESULT_ITEM_COUNT, MP_RESULT_BUTTON_Y);
@@ -1458,6 +1620,7 @@ void drawSettings(const Textures& textures, const UiState& ui) {
     drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
     DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
 
+    drawPanel(380, 150, 520, 400);
     int headingWidth = MeasureText("Settings", 38);
     DrawText("Settings", (SCREEN_WIDTH - headingWidth) / 2, 200, 38, GOLD);
 
@@ -1468,9 +1631,8 @@ void drawSettings(const Textures& textures, const UiState& ui) {
     const char* const labels[SETTINGS_ITEM_COUNT] = {soundLabel, freePlayLabel, "Back"};
     drawButtonMenu(textures, ui, labels, SETTINGS_ITEM_COUNT, SETTINGS_BUTTON_Y);
 
-    const char* note = "Free Play opens every maze, hero and arena. It does not save progress.";
-    int noteWidth = MeasureText(note, 20);
-    DrawText(note, (SCREEN_WIDTH - noteWidth) / 2, 560, 20, LIGHTGRAY);
+    drawTextPlate("Free Play opens every maze, hero and arena. It does not save progress.",
+                  SCREEN_WIDTH / 2, 580, 20, LIGHTGRAY);
 }
 
 }  // namespace
@@ -1598,11 +1760,13 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
     } else if (screen == MP_SETUP) {
         drawMultiplayerSetup(textures, ui);
     } else if (screen == PASS_SCREEN) {
-        drawPassScreen(game);
+        drawPassScreen(game, textures);
     } else if (screen == MP_RESULT) {
         drawMultiplayerResult(game, textures, ui);
-    } else if (screen == LEADERBOARD || screen == HOW_TO_PLAY) {
-        drawBackScreen(screen, textures, ui);
+    } else if (screen == LEADERBOARD) {
+        drawLeaderboard(textures, ui);
+    } else if (screen == HOW_TO_PLAY) {
+        drawHowToPlay(textures, ui);
     }
 }
 

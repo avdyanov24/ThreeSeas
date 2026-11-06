@@ -18,6 +18,30 @@ const int DECAL_VARIANTS = 6;
 const int EXIT_FRAMES = 4;
 const int HERO_FRAMES = 4;
 const int HUD_HEIGHT = 88;
+const int ERA_MAP_COUNT = 3;
+const int PIN_FRAMES = 4;
+
+// The small pictures of the How to Play screen, in the order of HOWTO_FILES in render.cpp
+enum HowToIcon {
+    HOWTO_TORCH,
+    HOWTO_TORCH_BAR,
+    HOWTO_OIL,
+    HOWTO_MAP,
+    HOWTO_DOOR,
+    HOWTO_WATER,
+    HOWTO_TRAP,
+    HOWTO_STARS,
+    HOWTO_EXIT,
+    HOWTO_CLOCK,
+    HOWTO_KEY_ONE,
+    HOWTO_KEY_TWO,
+    HOWTO_KEY_ENTER,
+    HOWTO_PASS_LAPTOP,
+    HOWTO_COLD,
+    HOWTO_SHIELD,
+    HOWTO_TROPHY,
+    HOWTO_ICON_COUNT
+};
 
 // Every sprite of one hero. Left-facing is the side sprite mirrored in code.
 struct HeroTextures {
@@ -42,6 +66,26 @@ struct Textures {
     Texture2D menuLogo;
     Texture2D buttonNormal;
     Texture2D buttonHover;
+    Texture2D eraMaps[ERA_MAP_COUNT];
+    Texture2D passScreen;
+    Texture2D multiplayerResult;
+    Texture2D resultWin;
+    Texture2D resultLose;
+    Texture2D pinOpen[PIN_FRAMES];
+    Texture2D pinLocked[PIN_FRAMES];
+    Texture2D pinFinished[PIN_FRAMES];
+    Texture2D starFilled;
+    Texture2D starEmpty;
+    Texture2D howTo[HOWTO_ICON_COUNT];
+    Texture2D hudFlame;
+    Texture2D hudTimer;
+    Texture2D hudSlot;
+    Texture2D hudMap;
+    Texture2D hudKey;
+    Texture2D hudTrap;
+    Texture2D hudPortraitFrame;
+    Texture2D hudTorchbarFull;
+    Texture2D hudTorchbarEmpty;
     Texture2D floors[FLOOR_VARIANTS];
     int floorWeights[FLOOR_VARIANTS];
     Texture2D wallTops[WALL_TOP_VARIANTS];

@@ -15,6 +15,7 @@ const int LEVEL_COUNT = 9;
 const int ARENA_COUNT = 3;
 const int CHARACTER_COUNT = 6;
 const int MAX_RECORDS = 500;  // most lines read from a save file
+const int LEADERBOARD_WINS = 5;  // players shown in the most-wins list
 
 const int NO_TRAP = -1;     // Cell::trapOwner: no trap on this cell
 const int LEVEL_TRAP = -2;  // Cell::trapOwner: trap placed by the level (campaign)
@@ -160,6 +161,10 @@ struct UiState {
     std::string playerNames[MAX_PLAYERS];
     CharacterId characters[MAX_PLAYERS];
     Settings settings;
+    Result levelBest[LEVEL_COUNT];  // leaderboard: fastest result of each level
+    bool hasLevelBest[LEVEL_COUNT];
+    WinRecord topWins[LEADERBOARD_WINS];  // leaderboard: players with the most wins
+    int topWinCount;
 };
 
 #endif  // TYPES_H
