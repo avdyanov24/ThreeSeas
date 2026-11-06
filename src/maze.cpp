@@ -93,4 +93,120 @@ void connectExit(Maze& maze) {
     maze.cells[last][last].tile = EXIT;
 }
 
-void placeFeatures(Maze&, const Level&) {}
+// Stores the position (row * size + col) of every free floor cell in cells: a FLOOR
+// cell with no item and no trap, except the start. Returns how many were stored.
+static int collectFreeFloor(const Maze& maze, int cells[]) {
+    int count = 0;
+    for (int row = 0; row < maze.size; row++) {
+        for (int col = 0; col < maze.size; col++) {
+            const Cell& cell = maze.cells[row][col];
+            bool isStart = row == 0 && col == 0;
+            if (cell.tile == FLOOR && cell.item == NO_ITEM && cell.trapOwner == NO_TRAP &&
+                !isStart) {
+                cells[count] = row * maze.size + col;
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+// Puts the first count entries of cells in a random order (Fisher-Yates shuffle).
+static void shuffleCells(int cells[], int count) {
+    for (int i = count - 1; i > 0; i--) {
+        int j = rand() % (i + 1);
+        int saved = cells[i];
+        cells[i] = cells[j];
+        cells[j] = saved;
+    }
+}
+
+// Returns how many things belong in a maze of this size when the level asks for
+// perHundred of them on every 100 cells (rounded to the nearest whole number).
+static int getAmount(int size, float perHundred) {
+    return static_cast<int>(size * size / 100.0f * perHundred + 0.5f);
+}
+
+// Puts up to amount of the item on random free floor cells, never closer to the start than
+// minDistance (counted as row + col). A LEVEL_TRAP is a trap, so it becomes a trapOwner.
+static void scatterOnFloor(Maze& maze, Item item, bool isTrap, int amount, int minDistance) {
+    int* cells = new int[maze.size * maze.size];
+    int count = collectFreeFloor(maze, cells);
+    shuffleCells(cells, count);
+    int placed = 0;
+    for (int i = 0; i < count && placed < amount; i++) {
+        int row = cells[i] / maze.size;
+        int col = cells[i] % maze.size;
+        if (row + col < minDistance) {
+            continue;
+        }
+        if (isTrap) {
+            maze.cells[row][col].trapOwner = LEVEL_TRAP;
+        } else {
+            maze.cells[row][col].item = item;
+        }
+        placed++;
+    }
+    delete[] cells;
+}
+
+// Turns up to amount walls into doors. A door only goes on an inner wall that has floor on
+// two opposite sides, so every door is a shortcut and the maze can be finished without it.
+static void placeDoors(Maze& maze, int amount) {
+    int* candidates = new int[maze.size * maze.size];
+    int count = 0;
+    for (int row = 1; row < maze.size - 1; row++) {
+        for (int col = 1; col < maze.size - 1; col++) {
+            if (maze.cells[row][col].tile != WALL) {
+                continue;
+            }
+            bool isVertical = maze.cells[row - 1][col].tile == FLOOR &&
+                              maze.cells[row + 1][col].tile == FLOOR;
+            bool isHorizontal = maze.cells[row][col - 1].tile == FLOOR &&
+                                maze.cells[row][col + 1].tile == FLOOR;
+            if (isVertical || isHorizontal) {
+                candidates[count] = row * maze.size + col;
+                count++;
+            }
+        }
+    }
+    shuffleCells(candidates, count);
+    for (int i = 0; i < count && i < amount; i++) {
+        maze.cells[candidates[i] / maze.size][candidates[i] % maze.size].tile = DOOR;
+    }
+    delete[] candidates;
+}
+
+// Turns about 8% of the free floor cells into water (never next to the start).
+static void placeWater(Maze& maze) {
+    int* cells = new int[maze.size * maze.size];
+    int count = collectFreeFloor(maze, cells);
+    shuffleCells(cells, count);
+    int amount = count * 8 / 100;
+    int placed = 0;
+    for (int i = 0; i < count && placed < amount; i++) {
+        int row = cells[i] / maze.size;
+        int col = cells[i] % maze.size;
+        if (row + col < 3) {
+            continue;
+        }
+        maze.cells[row][col].tile = WATER;
+        placed++;
+    }
+    delete[] cells;
+}
+
+// Adds doors, water, level traps, the key, oil and maps. Doors and water come first,
+// because they need plain floor around them; items go on the floor that is left.
+void placeFeatures(Maze& maze, const Level& level) {
+    placeDoors(maze, level.doors);
+    if (level.hasWater) {
+        placeWater(maze);
+    }
+    scatterOnFloor(maze, NO_ITEM, true, getAmount(maze.size, level.trapsPer100), 3);
+    if (level.doors > 0) {
+        scatterOnFloor(maze, KEY, false, 1, 3);
+    }
+    scatterOnFloor(maze, OIL, false, getAmount(maze.size, level.oilPer100), 0);
+    scatterOnFloor(maze, MAP_ITEM, false, maze.size * maze.size / 300 + 1, 0);
+}
