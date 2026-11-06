@@ -694,6 +694,29 @@ void testSaveAndLoadResults(int& failures) {
     std::remove("save/results.txt");
 }
 
+// Checks destroyMaze clears the maze pointer and size.
+void testDestroyMaze(int& failures) {
+    Maze maze = createMaze(10);
+    destroyMaze(maze);
+    check("T19 destroyMaze clears cells", maze.cells == nullptr, failures);
+    check("T19 destroyMaze clears size", maze.size == 0, failures);
+}
+
+// Checks level, character, and arena unlock rules with Free Play.
+void testUnlocks(int& failures) {
+    check("T20 level 2 is locked without a prior result",
+          !isLevelUnlocked(2, false, false), failures);
+    check("T20 KRUM is locked before era 1 is entered",
+          !isCharacterUnlocked(KRUM, 0, false), failures);
+    check("T20 arena 1 is locked before an era is finished",
+          !isArenaUnlocked(1, 0, false), failures);
+    check("T20 Free Play unlocks level 2", isLevelUnlocked(2, false, true), failures);
+    check("T20 Free Play unlocks KRUM", isCharacterUnlocked(KRUM, 0, true), failures);
+    check("T20 Free Play unlocks arena 1", isArenaUnlocked(1, 0, true), failures);
+    check("T20 prior result unlocks level 2", isLevelUnlocked(2, true, false), failures);
+    check("T20 entering era 1 unlocks KRUM", isCharacterUnlocked(KRUM, 1, false), failures);
+    check("T20 finishing era 1 unlocks arena 1", isArenaUnlocked(1, 1, false), failures);
+}
 
 // Prints the test summary and returns failure when any check fails.
 int main() {
@@ -716,6 +739,11 @@ int main() {
     testCampaignStars(failures);
     testTrapEffects(failures);
     testWaterStepCost(failures);
+    testNextPlayer(failures);
+    testMultiplayerWinner(failures);
+    testSaveAndLoadResults(failures);
+    testDestroyMaze(failures);
+    testUnlocks(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";
