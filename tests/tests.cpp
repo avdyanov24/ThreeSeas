@@ -3,11 +3,13 @@
 #include <string>
 #include <cstdlib>
 #include <cmath>
+#include <cstdio>
 
 #include "game.h"
 #include "maze.h"
 #include "levels.h"
 #include "validation.h"
+#include "save.h"
 
 // Prints a test result and increments failures when the test did not pass; returns nothing.
 void check(const std::string& testName, bool passed, int& failures) {
@@ -585,6 +587,36 @@ void testWaterStepCost(int& failures) {
     check("T14 floor costs one step", getStepCost(maze, 1, 1) == 1, failures);
     destroyMaze(maze);
 }
+
+// Checks that nextTurn skips players who are out or have a skipped turn.
+void testNextPlayer(int& failures) {
+    GameState game = createEmptyGame();
+    Player players[3] = {};
+    game.players = players;
+    game.playerCount = 3;
+    players[0].maxFuel = 100.0f;
+    players[0].fuel = 50.0f;
+    players[1].maxFuel = 100.0f;
+    players[1].fuel = 50.0f;
+    players[2].maxFuel = 100.0f;
+    players[2].fuel = 50.0f;
+
+    game.currentPlayer = 2;
+    players[0].isOut = true;
+    game.stepsLeft = 0;
+    nextTurn(game);
+    check("T16 next active player wraps past player 0", game.currentPlayer == 1, failures);
+    check("T16 next turn resets steps left", game.stepsLeft == 3, failures);
+    check("T16 ending the turn burns one fuel", players[2].fuel == 49.0f, failures);
+
+    players[0].isOut = true;
+    players[1].turnsToSkip = 1;
+    game.currentPlayer = 2;
+    nextTurn(game);
+    check("T16 skipped player returns selection to player 2", game.currentPlayer == 2, failures);
+    check("T16 skipped player's penalty is cleared", players[1].turnsToSkip == 0, failures);
+}
+
 
 // Prints the test summary and returns failure when any check fails.
 int main() {
