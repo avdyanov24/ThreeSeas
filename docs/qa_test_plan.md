@@ -167,3 +167,11 @@
 - **Input:** Place the features of level 3 on a size 30 maze and of level 1 on a size 20 maze.
 - **Expected result:** The start and exit stay clear, there is one key and the level's doors, items lie on floor, traps are not next to the start, the exit is reachable without doors, and a level without doors has no key.
 - **Actual result:** Passed on 6 Nov 2026 (9 checks, all PASS)
+
+### T23: Multiplayer start
+
+- **Purpose:** Check the corner spawns and the random exit of a multiplayer game.
+- **Function tested:** `startLevel`, `createPlayers`, `placeRandomExit`, `getSpawnCell`
+- **Input:** Start a size 30 multiplayer game with 4 players, and a campaign game of size 10.
+- **Expected result:** Players start in the four corners on free floor, there is one exit at least size / 3 steps from every start and reachable from each, and the campaign exit stays bottom-right.
+- **Actual result:** Passed on 6 Nov 2026 (8 checks, all PASS)

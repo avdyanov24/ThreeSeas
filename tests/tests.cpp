@@ -810,6 +810,70 @@ void testPlaceFeatures(int& failures) {
     destroyMaze(plainMaze);
 }
 
+// T23: a multiplayer game starts every player in their own corner with a far, reachable exit.
+void testMultiplayerStart(int& failures) {
+    srand(4);
+    GameState game = createEmptyGame();
+    Level arena = *getLevel(5);
+    arena.hasWater = true;
+    arena.doors = 3;
+    arena.trapsPer100 = 0.0f;
+    startLevel(game, arena, 30, true);
+    const std::string names[4] = {"Ana", "Boris", "Cvetan", "Dimo"};
+    const CharacterId characters[4] = {ASPARUH, KRUM, BORIS, SIMEON};
+    createPlayers(game, 4, names, characters);
+
+    const int expectedRow[4] = {0, 28, 0, 28};
+    const int expectedCol[4] = {0, 28, 28, 0};
+    bool areCornersRight = true;
+    bool areStartsFloor = true;
+    bool areStartsReachable = true;
+    bool areDrawnPositionsRight = true;
+    int exitRow = -1;
+    int exitCol = -1;
+    for (int row = 0; row < game.maze.size; row++) {
+        for (int col = 0; col < game.maze.size; col++) {
+            if (game.maze.cells[row][col].tile == EXIT) {
+                exitRow = row;
+                exitCol = col;
+            }
+        }
+    }
+    bool isExitFarEnough = exitRow >= 0;
+    for (int i = 0; i < 4; i++) {
+        const Player& player = game.players[i];
+        areCornersRight = areCornersRight && player.row == expectedRow[i] &&
+                          player.col == expectedCol[i];
+        areStartsFloor = areStartsFloor && game.maze.cells[player.row][player.col].tile == FLOOR &&
+                         game.maze.cells[player.row][player.col].item == NO_ITEM;
+        areDrawnPositionsRight = areDrawnPositionsRight &&
+                                 player.visualRow == static_cast<float>(player.row) &&
+                                 player.visualCol == static_cast<float>(player.col);
+        if (exitRow >= 0) {
+            int distance = std::abs(exitRow - player.row) + std::abs(exitCol - player.col);
+            isExitFarEnough = isExitFarEnough && distance >= game.maze.size / 3;
+            areStartsReachable = areStartsReachable &&
+                                 canReachWithoutDoors(game.maze, player.row, player.col, exitRow,
+                                                      exitCol);
+        }
+    }
+    check("T23 four players are created", game.playerCount == 4, failures);
+    check("T23 players start in the four corners", areCornersRight, failures);
+    check("T23 every start is a free floor cell", areStartsFloor, failures);
+    check("T23 the drawn position starts on the real cell", areDrawnPositionsRight, failures);
+    check("T23 there is one exit and it is far from every start", isExitFarEnough, failures);
+    check("T23 the exit can be reached from every start", areStartsReachable, failures);
+    destroyGame(game);
+
+    startLevel(game, *getLevel(1), 10, false);
+    createPlayers(game, 1, names, characters);
+    check("T23 a campaign player starts in the top-left corner",
+          game.players[0].row == 0 && game.players[0].col == 0, failures);
+    check("T23 the campaign exit stays in the bottom-right corner",
+          game.maze.cells[9][9].tile == EXIT, failures);
+    destroyGame(game);
+}
+
 int main() {
 	int failures = 0;
     testSizeValidation(failures);
@@ -836,6 +900,7 @@ int main() {
     testDestroyMaze(failures);
     testUnlocks(failures);
     testPlaceFeatures(failures);
+    testMultiplayerStart(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";
