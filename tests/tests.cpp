@@ -3,11 +3,13 @@
 #include <string>
 #include <cstdlib>
 #include <cmath>
+#include <cstdio>
 
 #include "game.h"
 #include "maze.h"
 #include "levels.h"
 #include "validation.h"
+#include "save.h"
 
 // Prints a test result and increments failures when the test did not pass; returns nothing.
 void check(const std::string& testName, bool passed, int& failures) {
@@ -586,6 +588,136 @@ void testWaterStepCost(int& failures) {
     destroyMaze(maze);
 }
 
+// Checks that nextTurn skips players who are out or have a skipped turn.
+void testNextPlayer(int& failures) {
+    GameState game = createEmptyGame();
+    Player players[3] = {};
+    game.players = players;
+    game.playerCount = 3;
+    players[0].maxFuel = 100.0f;
+    players[0].fuel = 50.0f;
+    players[1].maxFuel = 100.0f;
+    players[1].fuel = 50.0f;
+    players[2].maxFuel = 100.0f;
+    players[2].fuel = 50.0f;
+
+    game.currentPlayer = 2;
+    players[0].isOut = true;
+    game.stepsLeft = 0;
+    nextTurn(game);
+    check("T16 next active player wraps past player 0", game.currentPlayer == 1, failures);
+    check("T16 next turn resets steps left", game.stepsLeft == 3, failures);
+    check("T16 ending the turn burns one fuel", players[2].fuel == 49.0f, failures);
+
+    players[0].isOut = true;
+    players[1].turnsToSkip = 1;
+    game.currentPlayer = 2;
+    nextTurn(game);
+    check("T16 skipped player returns selection to player 2", game.currentPlayer == 2, failures);
+    check("T16 skipped player's penalty is cleared", players[1].turnsToSkip == 0, failures);
+}
+
+// Checks multiplayer winners for the exit, last burning player, draw, and ongoing game.
+void testMultiplayerWinner(int& failures) {
+    GameState game = createEmptyGame();
+    game.maze = createMovementTestMaze();
+    game.maze.cells[2][2].tile = EXIT;
+    Player players[3] = {};
+    game.players = players;
+    game.playerCount = 3;
+    players[0].maxFuel = 100.0f;
+    players[0].fuel = 50.0f;
+    players[0].row = 0;
+    players[0].col = 0;
+    players[1].maxFuel = 100.0f;
+    players[1].fuel = 50.0f;
+    players[1].row = 0;
+    players[1].col = 0;
+    players[2].maxFuel = 100.0f;
+    players[2].fuel = 50.0f;
+    players[2].row = 0;
+    players[2].col = 0;
+
+    players[1].row = 2;
+    players[1].col = 2;
+    checkWinner(game);
+    check("T17 player on the exit wins", game.winner == 1, failures);
+
+    game.winner = NO_WINNER;
+    players[1].row = 0;
+    players[1].col = 0;
+    players[0].isOut = true;
+    players[2].isOut = true;
+    checkWinner(game);
+    check("T17 last player with fuel wins", game.winner == 1, failures);
+
+    game.winner = NO_WINNER;
+    players[0].isOut = true;
+    players[1].isOut = true;
+    players[2].isOut = true;
+    checkWinner(game);
+    check("T17 all torches out results in a draw", game.winner == DRAW, failures);
+
+    game.winner = NO_WINNER;
+    players[0].isOut = false;
+    players[1].isOut = false;
+    players[2].isOut = false;
+    checkWinner(game);
+    check("T17 game continues when no player reaches the exit",
+          game.winner == NO_WINNER, failures);
+
+    destroyMaze(game.maze);
+}
+
+// Checks result saving, loading, missing-file handling, and keeping the best time.
+void testSaveAndLoadResults(int& failures) {
+    std::remove("save/results.txt");
+    Result results[MAX_RECORDS] = {};
+    int count = {};
+    count = loadResults(results, MAX_RECORDS);
+    check("T18 missing results file loads zero records", count == 0, failures);
+
+    check("T18 first result saves successfully",
+          saveResult({"Ivan", 3, 84.5f, 2}), failures);
+    count = loadResults(results, MAX_RECORDS);
+    check("T18 saved result loads one record", count == 1, failures);
+    check("T18 loaded result has the saved name", results[0].name == "Ivan", failures);
+    check("T18 loaded result has the saved level", results[0].levelId == 3, failures);
+    check("T18 loaded result has the saved time", results[0].bestSeconds == 84.5f, failures);
+    check("T18 loaded result has the saved stars", results[0].stars == 2, failures);
+
+    check("T18 slower result saves successfully",
+          saveResult({"Ivan", 3, 90.0f, 1}), failures);
+    count = loadResults(results, MAX_RECORDS);
+    check("T18 slower result keeps one record", count == 1, failures);
+    check("T18 slower result preserves the best time", results[0].bestSeconds == 84.5f, failures);
+    std::remove("save/results.txt");
+}
+
+// Checks destroyMaze clears the maze pointer and size.
+void testDestroyMaze(int& failures) {
+    Maze maze = createMaze(10);
+    destroyMaze(maze);
+    check("T19 destroyMaze clears cells", maze.cells == nullptr, failures);
+    check("T19 destroyMaze clears size", maze.size == 0, failures);
+}
+
+// Checks level, character, and arena unlock rules with Free Play.
+void testUnlocks(int& failures) {
+    check("T20 level 2 is locked without a prior result",
+          !isLevelUnlocked(2, false, false), failures);
+    check("T20 KRUM is locked before era 1 is entered",
+          !isCharacterUnlocked(KRUM, 0, false), failures);
+    check("T20 arena 1 is locked before an era is finished",
+          !isArenaUnlocked(1, 0, false), failures);
+    check("T20 Free Play unlocks level 2", isLevelUnlocked(2, false, true), failures);
+    check("T20 Free Play unlocks KRUM", isCharacterUnlocked(KRUM, 0, true), failures);
+    check("T20 Free Play unlocks arena 1", isArenaUnlocked(1, 0, true), failures);
+    check("T20 prior result unlocks level 2", isLevelUnlocked(2, true, false), failures);
+    check("T20 entering era 1 unlocks KRUM", isCharacterUnlocked(KRUM, 1, false), failures);
+    check("T20 finishing era 1 unlocks arena 1", isArenaUnlocked(1, 1, false), failures);
+}
+
 // Prints the test summary and returns failure when any check fails.
 int main() {
 	int failures = 0;
@@ -607,6 +739,11 @@ int main() {
     testCampaignStars(failures);
     testTrapEffects(failures);
     testWaterStepCost(failures);
+    testNextPlayer(failures);
+    testMultiplayerWinner(failures);
+    testSaveAndLoadResults(failures);
+    testDestroyMaze(failures);
+    testUnlocks(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";
