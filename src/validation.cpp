@@ -54,6 +54,20 @@ bool isValidName(const std::string& name) {
     return true;
 }
 
-bool isValidPlayerCount(int) { return false; }
+// Returns true for 2 to 4 players.
+bool isValidPlayerCount(int count) {
+    return count >= MIN_PLAYERS && count <= MAX_PLAYERS;
+}
 
-bool isCharacterTaken(const Player*, int, CharacterId) { return false; }
+// Returns true if one of the first count players already has this character.
+bool isCharacterTaken(const Player* players, int count, CharacterId character) {
+    if (players == nullptr) {
+        return false;
+    }
+    for (int i = 0; i < count; i++) {
+        if (players[i].character == character) {
+            return true;
+        }
+    }
+    return false;
+}

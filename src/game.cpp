@@ -21,7 +21,11 @@ void startLevel(GameState& game, const Level& level, int size, bool isMultiplaye
     destroyGame(game);
     game.maze = createMaze(size);
     generatePaths(game.maze, 0, 0);
-    connectExit(game.maze);
+    if (isMultiplayer) {
+        placeRandomExit(game.maze);
+    } else {
+        connectExit(game.maze);
+    }
     placeFeatures(game.maze, level);
     game.level = &level;
     game.isMultiplayer = isMultiplayer;
@@ -41,6 +45,9 @@ void createPlayers(GameState& game, int count, const std::string names[],
         float fuelFactor = 2.0f;
         if (!game.isMultiplayer) {
             fuelFactor = game.level->fuelFactor;
+        }
+        if (game.isMultiplayer) {
+            getSpawnCell(game.maze, i, player.row, player.col);
         }
         player.maxFuel = game.maze.size * fuelFactor;
         if (player.character == ASPARUH) {
@@ -348,6 +355,21 @@ void nextTurn(GameState& game) {
     }
 
     game.stepsLeft = 3;
+}
+
+// Returns the seconds of a turn: 8 + size / 5 at first, 1 less after every full round,
+// never below half of the start time.
+float getTurnSeconds(int turnNumber, int playerCount, int mazeSize) {
+    float startSeconds = 8.0f + static_cast<float>(mazeSize) / 5.0f;
+    int round = 0;
+    if (turnNumber > 1 && playerCount > 0) {
+        round = (turnNumber - 1) / playerCount;
+    }
+    float seconds = startSeconds - static_cast<float>(round);
+    if (seconds < startSeconds / 2.0f) {
+        seconds = startSeconds / 2.0f;
+    }
+    return seconds;
 }
 
 // Sets the winner to the first player at the exit, the last active player, or DRAW.

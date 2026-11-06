@@ -115,6 +115,8 @@ struct GameState {
     bool isMultiplayer;
     float timeSeconds;
     int stepsLeft;  // multiplayer: steps left in this turn (3 at the start)
+    float turnSecondsLeft;  // multiplayer: seconds left in this turn
+    int turnNumber;  // multiplayer: 1 for the first turn, counts up after every turn
     int winner;     // player index, NO_WINNER or DRAW
 };
 
@@ -149,6 +151,7 @@ struct UiState {
     int resultStars;           // stars of the level that just ended, 0 when the torch went out
     bool isMouseActive;
     bool isExitRequested;
+    bool isMultiplayerGame;    // true when the game on screen is a multiplayer game
     int selectedEra;           // 1 to 3
     int selectedLevel;         // 1 to 9
     int chosenSize;            // maze size chosen on the level intro / MP setup

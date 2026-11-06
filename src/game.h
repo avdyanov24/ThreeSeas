@@ -11,11 +11,12 @@ GameState createEmptyGame();
 void destroyGame(GameState& game);
 
 // Frees any old maze, then builds a new one: createMaze, generatePaths(0, 0),
-// connectExit and placeFeatures. Sets game.level, isMultiplayer, timeSeconds = 0,
+// connectExit (multiplayer: placeRandomExit) and placeFeatures. Sets game.level, isMultiplayer, timeSeconds = 0,
 // winner = NO_WINNER and currentPlayer = 0. Does not create players.
 void startLevel(GameState& game, const Level& level, int size, bool isMultiplayer);
 
-// Creates count players (1 to 4) at (0, 0), with their names and characters.
+// Creates count players (1 to 4) with their names and characters. Campaign: at (0, 0).
+// Multiplayer: each player in their own corner (see getSpawnCell).
 // Call it after startLevel. Start fuel: campaign size * level fuelFactor,
 // multiplayer size * 2 (Asparuh gets +50%). Multiplayer players start with 1 trap,
 // campaign players with 0. Allocates the seen arrays and marks the first lit cells.
@@ -89,6 +90,12 @@ int calculateStars(int size, float seconds);
 // skipping and wrapping around. A player with turnsToSkip loses that turn.
 // Resets stepsLeft to 3.
 void nextTurn(GameState& game);
+
+// Multiplayer: returns how many seconds a player gets for the turn. A bigger maze gives
+// more time: 8 + size / 5 seconds at the start (12 for size 20, 18 for size 50). The time
+// shrinks by 1 second after every full round of turns, down to half of the start time.
+// turnNumber starts at 1.
+float getTurnSeconds(int turnNumber, int playerCount, int mazeSize);
 
 // Sets game.winner: the index of the first player on the exit, or of the last
 // player whose torch is still burning, or DRAW if all torches went out in the

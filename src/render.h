@@ -98,6 +98,11 @@ void drawTorchLight(const GameState& game, const Player& viewer, const Textures&
 // Draws the player's sprite on their cell.
 void drawPlayer(const GameState& game, const Player& player, const Textures& textures);
 
+// Draws another player's sprite on their cell, seen from the viewer's camera. Used in
+// multiplayer to show players who stand in the viewer's torchlight.
+void drawPlayerSeenBy(const GameState& game, const Player& viewer, const Player& player,
+                      const Textures& textures);
+
 // Draws the torch bar, the timer (campaign) or the name, turn and steps left
 // (multiplayer), the inventory, the place and year, and the hero portrait.
 void drawHud(const GameState& game, const Player& viewer, const Textures& textures);

@@ -33,6 +33,15 @@ void generatePaths(Maze& maze, int row, int col);
 // The EXIT tile is walkable, so it counts as floor.
 void connectExit(Maze& maze);
 
+// Multiplayer: returns the room where player 0 to 3 starts, one corner each: top-left,
+// bottom-right, top-right, bottom-left. Corners are rooms, so they are always floor.
+void getSpawnCell(const Maze& maze, int index, int& row, int& col);
+
+// Multiplayer: makes a random room the EXIT, at least size / 3 steps (row + col distance)
+// away from every spawn corner. Falls back to connectExit if no room is far enough.
+// Call it once, after generatePaths, instead of connectExit.
+void placeRandomExit(Maze& maze);
+
 // Adds oil, maps, the key, doors, water and level traps using the numbers in level.
 // Never on the start (0, 0) or the exit; traps never next to the start.
 // Doors only go on walls with floor on two opposite sides, so the maze can always

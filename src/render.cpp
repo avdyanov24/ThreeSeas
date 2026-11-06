@@ -620,8 +620,14 @@ void drawTorchLight(const GameState& game, const Player& viewer, const Textures&
     EndBlendMode();
 }
 
-// Draws the selected hero at the same camera position and scale as the maze.
+// Draws the player's sprite on their cell, with the camera centred on the player.
 void drawPlayer(const GameState& game, const Player& player, const Textures& textures) {
+    drawPlayerSeenBy(game, player, player, textures);
+}
+
+// Draws a hero at the same camera position and scale as the maze, as the viewer sees it.
+void drawPlayerSeenBy(const GameState& game, const Player& viewer, const Player& player,
+                      const Textures& textures) {
     if (player.character < ASPARUH || player.character > LEVSKI) {
         return;
     }
@@ -630,7 +636,7 @@ void drawPlayer(const GameState& game, const Player& player, const Textures& tex
     if (sprite.id == 0) {
         return;
     }
-    Vector2 camera = getCameraOrigin(game.maze, player);
+    Vector2 camera = getCameraOrigin(game.maze, viewer);
     float width = static_cast<float>(sprite.width * TILE_SCALE);
     float height = static_cast<float>(sprite.height * TILE_SCALE);
     Rectangle source = {0.0f, 0.0f, static_cast<float>(sprite.width),
@@ -662,21 +668,35 @@ void drawHud(const GameState& game, const Player& viewer, const Textures& textur
     DrawRectangle(24, 48, 300, 20, Color{50, 38, 34, 255});
     DrawRectangle(24, 48, static_cast<int>(300.0f * fuelRatio), 20, fuelColor);
     DrawRectangleLines(24, 48, 300, 20, GOLD);
-    int seconds = 0;
-    if (game.timeSeconds > 0.0f) {
-        seconds = static_cast<int>(game.timeSeconds);
+    if (game.isMultiplayer) {
+        DrawText(viewer.name.c_str(), 430, 14, 26, GOLD);
+        DrawText(TextFormat("Turn %d", game.turnNumber), 430, 48, 20, RAYWHITE);
+        float secondsLeft = game.turnSecondsLeft > 0.0f ? game.turnSecondsLeft : 0.0f;
+        Color timeColor = secondsLeft < 3.0f ? RED : RAYWHITE;
+        DrawText(TextFormat("Time: %.1f s", secondsLeft), 540, 48, 20, timeColor);
+        DrawText(TextFormat("Map x %d   Trap x %d", viewer.maps, viewer.traps), 720, 14, 22,
+                 RAYWHITE);
+        if (viewer.hasKey) {
+            DrawText("Key", 960, 14, 22, GOLD);
+        }
+        DrawText("Hold arrows: walk   1: map   2: trap   Enter: end turn", 720, 48, 20, RAYWHITE);
+    } else {
+        int seconds = 0;
+        if (game.timeSeconds > 0.0f) {
+            seconds = static_cast<int>(game.timeSeconds);
+        }
+        DrawText(TextFormat("Time: %02d:%02d", seconds / 60, seconds % 60), 430, 22, 26,
+                 RAYWHITE);
+        if (game.level != nullptr) {
+            DrawText(TextFormat("%s - %d", game.level->place.c_str(), game.level->year),
+                     720, 14, 22, GOLD);
+        }
+        DrawText(TextFormat("Map x %d", viewer.maps), 430, 58, 20, RAYWHITE);
+        if (viewer.hasKey) {
+            DrawText("Key", 540, 58, 20, GOLD);
+        }
+        DrawText("Arrow keys: move   M: map   Esc: back", 720, 48, 20, RAYWHITE);
     }
-    DrawText(TextFormat("Time: %02d:%02d", seconds / 60, seconds % 60), 430, 22, 26,
-             RAYWHITE);
-    if (game.level != nullptr) {
-        DrawText(TextFormat("%s - %d", game.level->place.c_str(), game.level->year),
-                 720, 14, 22, GOLD);
-    }
-    DrawText(TextFormat("Map x %d", viewer.maps), 430, 58, 20, RAYWHITE);
-    if (viewer.hasKey) {
-        DrawText("Key", 540, 58, 20, GOLD);
-    }
-    DrawText("Arrow keys: move   M: map   Esc: back", 720, 48, 20, RAYWHITE);
     if (viewer.character >= ASPARUH && viewer.character <= LEVSKI) {
         const Texture2D& portrait = textures.heroes[viewer.character].portrait;
         if (portrait.id != 0) {

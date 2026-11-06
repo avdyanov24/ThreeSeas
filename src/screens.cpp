@@ -4,6 +4,7 @@
 
 #include "game.h"
 #include "levels.h"
+#include "maze.h"
 #include "save.h"
 #include "validation.h"
 
@@ -31,6 +32,7 @@ const int SETTINGS_BUTTON_Y = 300;
 const int PAUSE_ITEM_COUNT = 3;
 const int PAUSE_BUTTON_Y = 300;
 const char* const PAUSE_ITEMS[PAUSE_ITEM_COUNT] = {"Resume", "Restart", "Quit to map"};
+const char* const PAUSE_ITEMS_MP[PAUSE_ITEM_COUNT] = {"Resume", "Restart", "Quit to menu"};
 const int RESULT_ITEM_COUNT = 2;
 const int RESULT_BUTTON_Y = 440;
 const char* const RESULT_ITEMS[RESULT_ITEM_COUNT] = {"Play again", "Back to map"};
@@ -423,6 +425,7 @@ Screen updateMultiplayerSetup(UiState& ui) {
             int size = 0;
             parseWholeNumber(ui.typedText, size);
             ui.chosenSize = size;
+            ui.isMultiplayerGame = true;
             return PLAYING;
         }
     }
@@ -526,6 +529,7 @@ Screen updateLevelIntro(UiState& ui) {
         if (parseWholeNumber(ui.typedText, size) && isValidSize(size, false)) {
             ui.chosenSize = size;
             ui.errorMessage = "";
+            ui.isMultiplayerGame = false;
             return PLAYING;
         }
         ui.errorMessage = "Enter a whole number from 10 to 50.";
@@ -1104,6 +1108,12 @@ void drawGameplay(const GameState& game, const Textures& textures) {
     BeginScissorMode(0, HUD_HEIGHT, GetScreenWidth(), GetScreenHeight() - HUD_HEIGHT);
     drawMaze(game, viewer, textures);
     drawTorchLight(game, viewer, textures);
+    for (int i = 0; i < game.playerCount; i++) {
+        const Player& other = game.players[i];
+        if (i != game.currentPlayer && isLit(viewer, other.row, other.col)) {
+            drawPlayerSeenBy(game, viewer, other, textures);
+        }
+    }
     drawPlayer(game, viewer, textures);
     EndScissorMode();
     drawHud(game, viewer, textures);
@@ -1124,8 +1134,12 @@ Screen updatePause(GameState& game, UiState& ui) {
         return PLAYING;
     }
     if (choice == 2) {
+        bool wasMultiplayer = game.isMultiplayer;
         destroyGame(game);
         ui.selectedItem = 0;
+        if (wasMultiplayer) {
+            return MAIN_MENU;
+        }
         return CAMPAIGN_MAP;
     }
     return PAUSED;
@@ -1137,7 +1151,8 @@ void drawPause(const GameState& game, const Textures& textures, const UiState& u
     DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
     int headingWidth = MeasureText("Paused", 38);
     DrawText("Paused", (SCREEN_WIDTH - headingWidth) / 2, 200, 38, GOLD);
-    drawButtonMenu(textures, ui, PAUSE_ITEMS, PAUSE_ITEM_COUNT, PAUSE_BUTTON_Y);
+    const char* const* items = game.isMultiplayer ? PAUSE_ITEMS_MP : PAUSE_ITEMS;
+    drawButtonMenu(textures, ui, items, PAUSE_ITEM_COUNT, PAUSE_BUTTON_Y);
 }
 
 // Handles the result screen. Returns PLAYING for Play again (after the game is freed,
@@ -1269,6 +1284,88 @@ Screen updatePassScreen() {
         return PLAYING;
     }
     return PASS_SCREEN;
+}
+
+// Looks for a winner after a move or a turn. A winner is saved with addWin. Returns
+// MP_RESULT when the game is over, otherwise the screen given in otherwise.
+Screen checkMultiplayerEnd(GameState& game, UiState& ui, Screen otherwise) {
+    checkWinner(game);
+    if (game.winner == NO_WINNER) {
+        return otherwise;
+    }
+    if (game.winner >= 0 && game.winner < game.playerCount) {
+        addWin(game.players[game.winner].name);
+    }
+    ui.selectedItem = 0;
+    return MP_RESULT;
+}
+
+// Ends the turn of the current player: burns their fuel and passes the turn on, gives the
+// next player their seconds, then looks for a winner. Returns MP_RESULT when the game is
+// over, otherwise PASS_SCREEN.
+Screen endMultiplayerTurn(GameState& game, UiState& ui) {
+    nextTurn(game);
+    game.turnNumber++;
+    game.turnSecondsLeft = getTurnSeconds(game.turnNumber, game.playerCount, game.maze.size);
+    return checkMultiplayerEnd(game, ui, PASS_SCREEN);
+}
+
+// Runs one multiplayer frame. The player has a few seconds per turn (they shrink every
+// round): hold an arrow key to walk (water is slower), 1 uses a Map, 2 places a Trap and
+// Enter ends the turn early. The turn also ends when the time runs out or a trap springs.
+// Returns PASS_SCREEN after a turn, MP_RESULT when the game is over, PAUSED for Esc,
+// otherwise PLAYING.
+Screen updateMultiplayerGame(GameState& game, UiState& ui, float deltaTime) {
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        ui.selectedItem = 0;
+        return PAUSED;
+    }
+    Player& player = game.players[game.currentPlayer];
+    if (IsKeyPressed(KEY_ENTER)) {
+        return endMultiplayerTurn(game, ui);
+    }
+    if (IsKeyPressed(KEY_ONE)) {
+        useMap(game.maze, player);
+    }
+    if (IsKeyPressed(KEY_TWO)) {
+        placeTrap(game.maze, player, game.currentPlayer);
+    }
+
+    float previousTime = game.timeSeconds;
+    game.timeSeconds += deltaTime;
+    game.turnSecondsLeft -= deltaTime;
+
+    int heldDirection = -1;
+    if (IsKeyDown(KEY_UP)) {
+        heldDirection = UP;
+    } else if (IsKeyDown(KEY_DOWN)) {
+        heldDirection = DOWN;
+    } else if (IsKeyDown(KEY_LEFT)) {
+        heldDirection = LEFT;
+    } else if (IsKeyDown(KEY_RIGHT)) {
+        heldDirection = RIGHT;
+    }
+    float movementInterval = 0.12f;
+    if (game.maze.cells[player.row][player.col].tile == WATER) {
+        movementInterval = 0.24f;
+    }
+    int previousStep = static_cast<int>(previousTime / movementInterval);
+    int currentStep = static_cast<int>(game.timeSeconds / movementInterval);
+    bool hasSprungTrap = false;
+    if (heldDirection != -1 && previousStep != currentStep &&
+        tryMove(game.maze, player, static_cast<Direction>(heldDirection))) {
+        pickUpItem(game, player);
+        updateSeen(game.maze, player);
+        hasSprungTrap = player.turnsToSkip > 0;
+        Screen next = checkMultiplayerEnd(game, ui, PLAYING);
+        if (next != PLAYING) {
+            return next;
+        }
+    }
+    if (hasSprungTrap || game.turnSecondsLeft <= 0.0f) {
+        return endMultiplayerTurn(game, ui);
+    }
+    return PLAYING;
 }
 
 // Draws the black pass screen with the name of the player whose turn comes next.
@@ -1406,6 +1503,10 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
 
     if (screen == NAME_ENTRY) {
         return updateNameEntry(ui);
+    }
+
+    if (screen == PLAYING && game.isMultiplayer) {
+        return updateMultiplayerGame(game, ui, deltaTime);
     }
 
     if (screen == PLAYING) {
