@@ -669,6 +669,31 @@ void testMultiplayerWinner(int& failures) {
     destroyMaze(game.maze);
 }
 
+// Checks result saving, loading, missing-file handling, and keeping the best time.
+void testSaveAndLoadResults(int& failures) {
+    std::remove("save/results.txt");
+    Result results[MAX_RECORDS] = {};
+    int count = {};
+    count = loadResults(results, MAX_RECORDS);
+    check("T18 missing results file loads zero records", count == 0, failures);
+
+    check("T18 first result saves successfully",
+          saveResult({"Ivan", 3, 84.5f, 2}), failures);
+    count = loadResults(results, MAX_RECORDS);
+    check("T18 saved result loads one record", count == 1, failures);
+    check("T18 loaded result has the saved name", results[0].name == "Ivan", failures);
+    check("T18 loaded result has the saved level", results[0].levelId == 3, failures);
+    check("T18 loaded result has the saved time", results[0].bestSeconds == 84.5f, failures);
+    check("T18 loaded result has the saved stars", results[0].stars == 2, failures);
+
+    check("T18 slower result saves successfully",
+          saveResult({"Ivan", 3, 90.0f, 1}), failures);
+    count = loadResults(results, MAX_RECORDS);
+    check("T18 slower result keeps one record", count == 1, failures);
+    check("T18 slower result preserves the best time", results[0].bestSeconds == 84.5f, failures);
+    std::remove("save/results.txt");
+}
+
 
 // Prints the test summary and returns failure when any check fails.
 int main() {
