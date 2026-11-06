@@ -1,4 +1,4 @@
-// QA test functions (T01-T20).
+// QA test functions (T01-T24).
 #include <iostream>
 #include <string>
 #include <cstdlib>
@@ -719,6 +719,97 @@ void testUnlocks(int& failures) {
 }
 
 // Prints the test summary and returns failure when any check fails.
+// Returns true if the cell (toRow, toCol) can be reached from (fromRow, fromCol) without
+// opening any door. Returns false otherwise.
+bool canReachWithoutDoors(const Maze& maze, int fromRow, int fromCol, int toRow, int toCol) {
+    bool visited[MAX_SIZE][MAX_SIZE] = {};
+    int stack[MAX_SIZE * MAX_SIZE];
+    int top = 0;
+    stack[top++] = fromRow * maze.size + fromCol;
+    visited[fromRow][fromCol] = true;
+    const int rowChange[4] = {-1, 1, 0, 0};
+    const int colChange[4] = {0, 0, -1, 1};
+    while (top > 0) {
+        int position = stack[--top];
+        int row = position / maze.size;
+        int col = position % maze.size;
+        for (int i = 0; i < 4; i++) {
+            int nextRow = row + rowChange[i];
+            int nextCol = col + colChange[i];
+            if (!isInside(maze, nextRow, nextCol) || visited[nextRow][nextCol]) {
+                continue;
+            }
+            Tile tile = maze.cells[nextRow][nextCol].tile;
+            if (tile == WALL || tile == DOOR) {
+                continue;
+            }
+            visited[nextRow][nextCol] = true;
+            stack[top++] = nextRow * maze.size + nextCol;
+        }
+    }
+    return visited[toRow][toCol];
+}
+
+// T22: placeFeatures puts doors, a key, oil, maps and traps in legal places.
+void testPlaceFeatures(int& failures) {
+    srand(3);
+    Level level = *getLevel(3);
+    Maze maze = createMaze(30);
+    generatePaths(maze, 0, 0);
+    connectExit(maze);
+    placeFeatures(maze, level);
+
+    int keys = 0;
+    int oil = 0;
+    int maps = 0;
+    int doors = 0;
+    bool areItemsOnFloor = true;
+    bool areTrapsFarFromStart = true;
+    for (int row = 0; row < maze.size; row++) {
+        for (int col = 0; col < maze.size; col++) {
+            const Cell& cell = maze.cells[row][col];
+            keys += cell.item == KEY ? 1 : 0;
+            oil += cell.item == OIL ? 1 : 0;
+            maps += cell.item == MAP_ITEM ? 1 : 0;
+            doors += cell.tile == DOOR ? 1 : 0;
+            if (cell.item != NO_ITEM && cell.tile != FLOOR) {
+                areItemsOnFloor = false;
+            }
+            if (cell.trapOwner == LEVEL_TRAP && row + col < 3) {
+                areTrapsFarFromStart = false;
+            }
+        }
+    }
+    check("T22 start has no item and no trap",
+          maze.cells[0][0].item == NO_ITEM && maze.cells[0][0].trapOwner == NO_TRAP, failures);
+    check("T22 exit is still the exit", maze.cells[29][29].tile == EXIT, failures);
+    check("T22 one key when the level has doors", keys == 1, failures);
+    check("T22 the level's number of doors is placed", doors == level.doors, failures);
+    check("T22 oil and maps are placed", oil > 0 && maps > 0, failures);
+    check("T22 items only lie on floor", areItemsOnFloor, failures);
+    check("T22 traps are never next to the start", areTrapsFarFromStart, failures);
+    check("T22 exit can be reached without any door",
+          canReachWithoutDoors(maze, 0, 0, 29, 29), failures);
+    destroyMaze(maze);
+
+    Level plainLevel = *getLevel(1);
+    Maze plainMaze = createMaze(20);
+    generatePaths(plainMaze, 0, 0);
+    connectExit(plainMaze);
+    placeFeatures(plainMaze, plainLevel);
+    int plainKeys = 0;
+    int plainDoors = 0;
+    for (int row = 0; row < plainMaze.size; row++) {
+        for (int col = 0; col < plainMaze.size; col++) {
+            plainKeys += plainMaze.cells[row][col].item == KEY ? 1 : 0;
+            plainDoors += plainMaze.cells[row][col].tile == DOOR ? 1 : 0;
+        }
+    }
+    check("T22 a level without doors has no key and no door", plainKeys == 0 && plainDoors == 0,
+          failures);
+    destroyMaze(plainMaze);
+}
+
 int main() {
 	int failures = 0;
     testSizeValidation(failures);
@@ -744,6 +835,7 @@ int main() {
     testSaveAndLoadResults(failures);
     testDestroyMaze(failures);
     testUnlocks(failures);
+    testPlaceFeatures(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";
