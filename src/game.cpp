@@ -21,7 +21,11 @@ void startLevel(GameState& game, const Level& level, int size, bool isMultiplaye
     destroyGame(game);
     game.maze = createMaze(size);
     generatePaths(game.maze, 0, 0);
-    connectExit(game.maze);
+    if (isMultiplayer) {
+        placeRandomExit(game.maze);
+    } else {
+        connectExit(game.maze);
+    }
     placeFeatures(game.maze, level);
     game.level = &level;
     game.isMultiplayer = isMultiplayer;
@@ -42,6 +46,12 @@ void createPlayers(GameState& game, int count, const std::string names[],
         if (!game.isMultiplayer) {
             fuelFactor = game.level->fuelFactor;
         }
+        if (game.isMultiplayer) {
+            getSpawnCell(game.maze, i, player.row, player.col);
+        }
+        player.visualRow = static_cast<float>(player.row);
+        player.visualCol = static_cast<float>(player.col);
+        player.facing = DOWN;
         player.maxFuel = game.maze.size * fuelFactor;
         if (player.character == ASPARUH) {
             player.maxFuel *= 1.5f;
@@ -97,6 +107,7 @@ bool tryMove(Maze& maze, Player& player, Direction direction) {
         return false;
     }
 
+    player.facing = direction;
     const int nextRow = player.row + rowStep(direction);
     const int nextCol = player.col + colStep(direction);
     if (!canEnter(maze, player, nextRow, nextCol)) {
@@ -303,6 +314,21 @@ bool placeTrap(Maze& maze, Player& player, int playerIndex) {
     return true;
 }
 
+// Moves one drawn coordinate towards its target by at most step and returns the new value.
+static float approachValue(float current, float target, float step) {
+    if (current + step >= target && current - step <= target) {
+        return target;
+    }
+    return current < target ? current + step : current - step;
+}
+
+// Slides the drawn position of the player towards their cell at 8 cells per second.
+void updateVisualPosition(Player& player, float deltaTime) {
+    float step = deltaTime * 8.0f;
+    player.visualRow = approachValue(player.visualRow, static_cast<float>(player.row), step);
+    player.visualCol = approachValue(player.visualCol, static_cast<float>(player.col), step);
+}
+
 // Returns whether the player is standing on the maze exit.
 bool hasReachedExit(const Maze& maze, const Player& player) {
     return isInside(maze, player.row, player.col) &&
@@ -348,6 +374,21 @@ void nextTurn(GameState& game) {
     }
 
     game.stepsLeft = 3;
+}
+
+// Returns the seconds of a turn: 8 + size / 5 at first, 1 less after every full round,
+// never below half of the start time.
+float getTurnSeconds(int turnNumber, int playerCount, int mazeSize) {
+    float startSeconds = 8.0f + static_cast<float>(mazeSize) / 5.0f;
+    int round = 0;
+    if (turnNumber > 1 && playerCount > 0) {
+        round = (turnNumber - 1) / playerCount;
+    }
+    float seconds = startSeconds - static_cast<float>(round);
+    if (seconds < startSeconds / 2.0f) {
+        seconds = startSeconds / 2.0f;
+    }
+    return seconds;
 }
 
 // Sets the winner to the first player at the exit, the last active player, or DRAW.

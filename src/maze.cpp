@@ -93,16 +93,80 @@ void connectExit(Maze& maze) {
     maze.cells[last][last].tile = EXIT;
 }
 
+// Returns the room of the corner where player index 0 to 3 starts.
+void getSpawnCell(const Maze& maze, int index, int& row, int& col) {
+    int last = (maze.size - 1) / 2 * 2;
+    row = 0;
+    col = 0;
+    if (index == 1 || index == 3) {
+        row = last;
+    }
+    if (index == 1 || index == 2) {
+        col = last;
+    }
+}
+
+// Returns the distance in steps along rows and columns between two cells.
+static int getCellDistance(int rowA, int colA, int rowB, int colB) {
+    int rowDistance = rowA > rowB ? rowA - rowB : rowB - rowA;
+    int colDistance = colA > colB ? colA - colB : colB - colA;
+    return rowDistance + colDistance;
+}
+
+// Returns true if (row, col) is one of the four spawn corners.
+static bool isSpawnCorner(const Maze& maze, int row, int col) {
+    for (int i = 0; i < 4; i++) {
+        int spawnRow = 0;
+        int spawnCol = 0;
+        getSpawnCell(maze, i, spawnRow, spawnCol);
+        if (row == spawnRow && col == spawnCol) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Makes a random room far from every corner the EXIT, or the bottom-right cell if none is.
+void placeRandomExit(Maze& maze) {
+    int* rooms = new int[maze.size * maze.size];
+    int count = 0;
+    int minDistance = maze.size / 3;
+    for (int row = 0; row < maze.size; row += 2) {
+        for (int col = 0; col < maze.size; col += 2) {
+            bool isFarEnough = maze.cells[row][col].tile == FLOOR;
+            for (int i = 0; i < 4 && isFarEnough; i++) {
+                int spawnRow = 0;
+                int spawnCol = 0;
+                getSpawnCell(maze, i, spawnRow, spawnCol);
+                if (getCellDistance(row, col, spawnRow, spawnCol) < minDistance) {
+                    isFarEnough = false;
+                }
+            }
+            if (isFarEnough) {
+                rooms[count] = row * maze.size + col;
+                count++;
+            }
+        }
+    }
+    if (count == 0) {
+        connectExit(maze);
+    } else {
+        int picked = rooms[rand() % count];
+        maze.cells[picked / maze.size][picked % maze.size].tile = EXIT;
+    }
+    delete[] rooms;
+    rooms = nullptr;
+}
+
 // Stores the position (row * size + col) of every free floor cell in cells: a FLOOR
-// cell with no item and no trap, except the start. Returns how many were stored.
+// cell with no item and no trap, except the four spawn corners. Returns how many were stored.
 static int collectFreeFloor(const Maze& maze, int cells[]) {
     int count = 0;
     for (int row = 0; row < maze.size; row++) {
         for (int col = 0; col < maze.size; col++) {
             const Cell& cell = maze.cells[row][col];
-            bool isStart = row == 0 && col == 0;
             if (cell.tile == FLOOR && cell.item == NO_ITEM && cell.trapOwner == NO_TRAP &&
-                !isStart) {
+                !isSpawnCorner(maze, row, col)) {
                 cells[count] = row * maze.size + col;
                 count++;
             }
@@ -148,6 +212,7 @@ static void scatterOnFloor(Maze& maze, Item item, bool isTrap, int amount, int m
         placed++;
     }
     delete[] cells;
+    cells = nullptr;
 }
 
 // Turns up to amount walls into doors. A door only goes on an inner wall that has floor on
@@ -175,6 +240,7 @@ static void placeDoors(Maze& maze, int amount) {
         maze.cells[candidates[i] / maze.size][candidates[i] % maze.size].tile = DOOR;
     }
     delete[] candidates;
+    candidates = nullptr;
 }
 
 // Turns about 8% of the free floor cells into water (never next to the start).
@@ -194,6 +260,7 @@ static void placeWater(Maze& maze) {
         placed++;
     }
     delete[] cells;
+    cells = nullptr;
 }
 
 // Adds doors, water, level traps, the key, oil and maps. Doors and water come first,

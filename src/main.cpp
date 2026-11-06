@@ -37,6 +37,48 @@ static void startCampaignLevel(GameState& game, const UiState& ui, Textures& tex
     createPlayers(game, 1, names, characters);
 }
 
+// Starts a multiplayer game on the arena picked in the setup: builds the arena as a level
+// (the look comes from a campaign level, the water and cold from the arena), loads its
+// textures when they changed, builds a new maze and creates the players. The first player
+// gets the first turn time. Returns nothing.
+static void startMultiplayerGame(GameState& game, const UiState& ui, Level& arenaLevel,
+                                 Textures& textures, int& loadedLevelId) {
+    // The campaign level whose pictures each arena borrows: Pliska, Cherven (water), Shipka (ice)
+    const int arenaLookLevels[ARENA_COUNT] = {1, 5, 9};
+    const Arena* arena = getArena(ui.arenaId);
+    if (arena == nullptr) {
+        arena = getArena(1);
+    }
+    int lookLevelId = arenaLookLevels[arena->id - 1];
+
+    arenaLevel = *getLevel(lookLevelId);
+    arenaLevel.place = arena->name;
+    arenaLevel.hasWater = arena->hasWater;
+    arenaLevel.isCold = arena->isCold;
+    arenaLevel.oilPer100 = 3.0f;
+    arenaLevel.trapsPer100 = 0.0f;  // the players place the traps
+    arenaLevel.doors = ui.chosenSize / 10;
+
+    if (lookLevelId != loadedLevelId) {
+        unloadTextures(textures);
+        textures = loadTextures(arenaLevel);
+        loadUiTextures(textures);
+        loadedLevelId = lookLevelId;
+    }
+
+    startLevel(game, arenaLevel, ui.chosenSize, true);
+    std::string names[MAX_PLAYERS];
+    CharacterId characters[MAX_PLAYERS];
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        names[i] = ui.playerNames[i];
+        characters[i] = ui.characters[i];
+    }
+    createPlayers(game, ui.playerCount, names, characters);
+    game.stepsLeft = 3;
+    game.turnNumber = 1;
+    game.turnSecondsLeft = getTurnSeconds(1, game.playerCount, game.maze.size);
+}
+
 // Opens the game window and runs the screen state machine.
 int main() {
     InitWindow(1280, 720, "Crossroads");
@@ -50,13 +92,26 @@ int main() {
     int loadedLevelId = 1;
     Textures textures = loadTextures(*getLevel(loadedLevelId));
     loadUiTextures(textures);
+    Level arenaLevel = {};  // the multiplayer arena, game.level points to it
     Screen screen = TITLE;
 
     while (!WindowShouldClose() && !ui.isExitRequested) {
         float deltaTime = GetFrameTime();
-        screen = updateScreen(screen, game, ui, deltaTime);
+        Screen nextScreen = updateScreen(screen, game, ui, deltaTime);
+        if (nextScreen != screen) {
+            ui.screenSeconds = 0.0f;
+        } else {
+            ui.screenSeconds += deltaTime;
+        }
+        screen = nextScreen;
         if (screen == PLAYING && game.players == nullptr) {
-            startCampaignLevel(game, ui, textures, loadedLevelId);
+            if (ui.isMultiplayerGame) {
+                startMultiplayerGame(game, ui, arenaLevel, textures, loadedLevelId);
+                screen = PASS_SCREEN;  // the first player takes the laptop
+                ui.screenSeconds = 0.0f;
+            } else {
+                startCampaignLevel(game, ui, textures, loadedLevelId);
+            }
         }
 
         if (ui.isExitRequested) {
