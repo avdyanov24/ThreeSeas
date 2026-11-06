@@ -97,11 +97,18 @@ int main() {
 
     while (!WindowShouldClose() && !ui.isExitRequested) {
         float deltaTime = GetFrameTime();
-        screen = updateScreen(screen, game, ui, deltaTime);
+        Screen nextScreen = updateScreen(screen, game, ui, deltaTime);
+        if (nextScreen != screen) {
+            ui.screenSeconds = 0.0f;
+        } else {
+            ui.screenSeconds += deltaTime;
+        }
+        screen = nextScreen;
         if (screen == PLAYING && game.players == nullptr) {
             if (ui.isMultiplayerGame) {
                 startMultiplayerGame(game, ui, arenaLevel, textures, loadedLevelId);
                 screen = PASS_SCREEN;  // the first player takes the laptop
+                ui.screenSeconds = 0.0f;
             } else {
                 startCampaignLevel(game, ui, textures, loadedLevelId);
             }

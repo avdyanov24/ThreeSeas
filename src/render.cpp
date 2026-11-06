@@ -320,8 +320,8 @@ static float getCameraAxis(float center, float worldSize, float screenSize) {
 // Returns the world position shown in the top-left corner of the screen
 Vector2 getCameraOrigin(const Maze& maze, const Player& viewer) {
     float worldSize = static_cast<float>((maze.size + 2) * TILE_SIZE);
-    float centerX = (viewer.col + 1.5f) * TILE_SIZE;
-    float centerY = (viewer.row + 1.5f) * TILE_SIZE;
+    float centerX = (viewer.visualCol + 1.5f) * TILE_SIZE;
+    float centerY = (viewer.visualRow + 1.5f) * TILE_SIZE;
     return Vector2{getCameraAxis(centerX, worldSize, static_cast<float>(GetScreenWidth())),
                    getCameraAxis(centerY, worldSize,
                                  static_cast<float>(GetScreenHeight() - HUD_HEIGHT)) - HUD_HEIGHT};
@@ -661,8 +661,8 @@ void drawTorchLight(const GameState& game, const Player& viewer, const Textures&
         return;
     }
     Vector2 camera = getCameraOrigin(game.maze, viewer);
-    float centerX = (viewer.col + 1.5f) * TILE_SIZE - camera.x;
-    float centerY = (viewer.row + 1.5f) * TILE_SIZE - camera.y;
+    float centerX = (viewer.visualCol + 1.5f) * TILE_SIZE - camera.x;
+    float centerY = (viewer.visualRow + 1.5f) * TILE_SIZE - camera.y;
     float fuelRatio = viewer.maxFuel > 0.0f ? viewer.fuel / viewer.maxFuel : 0.0f;
     float strength = fuelRatio < 0.3f ? 0.10f : 0.03f;
     float time = static_cast<float>(GetTime());
@@ -688,18 +688,40 @@ void drawPlayerSeenBy(const GameState& game, const Player& viewer, const Player&
     if (player.character < ASPARUH || player.character > LEVSKI) {
         return;
     }
-    int frame = static_cast<int>(GetTime() * 5.0) % HERO_FRAMES;
-    const Texture2D& sprite = textures.heroes[player.character].idle[frame];
+    const HeroTextures& hero = textures.heroes[player.character];
+    // The hero walks while the drawn position is still sliding to the real cell
+    float rowGap = player.visualRow - static_cast<float>(player.row);
+    float colGap = player.visualCol - static_cast<float>(player.col);
+    bool isMoving = (rowGap > 0.02f || rowGap < -0.02f || colGap > 0.02f || colGap < -0.02f);
+
+    const Texture2D* frames = hero.idle;
+    double framesPerSecond = 5.0;
+    bool isMirrored = false;
+    if (player.stuckSeconds > 0.0f) {
+        frames = hero.stuck;
+    } else if (isMoving) {
+        framesPerSecond = 12.0;
+        if (player.facing == UP) {
+            frames = hero.walkUp;
+        } else if (player.facing == DOWN) {
+            frames = hero.walkDown;
+        } else {
+            frames = hero.walkSide;
+            isMirrored = player.facing == LEFT;
+        }
+    }
+    const Texture2D& sprite = frames[static_cast<int>(GetTime() * framesPerSecond) % HERO_FRAMES];
     if (sprite.id == 0) {
         return;
     }
     Vector2 camera = getCameraOrigin(game.maze, viewer);
     float width = static_cast<float>(sprite.width * TILE_SCALE);
     float height = static_cast<float>(sprite.height * TILE_SCALE);
-    Rectangle source = {0.0f, 0.0f, static_cast<float>(sprite.width),
+    // A negative source width mirrors the picture, so the side sprite can face left
+    Rectangle source = {0.0f, 0.0f, static_cast<float>(isMirrored ? -sprite.width : sprite.width),
                         static_cast<float>(sprite.height)};
-    Rectangle destination = {(player.col + 1.5f) * TILE_SIZE - camera.x - width / 2.0f,
-                             (player.row + 2.0f) * TILE_SIZE - camera.y - height,
+    Rectangle destination = {(player.visualCol + 1.5f) * TILE_SIZE - camera.x - width / 2.0f,
+                             (player.visualRow + 2.0f) * TILE_SIZE - camera.y - height,
                              width, height};
     DrawTexturePro(sprite, source, destination, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
 }
@@ -771,7 +793,13 @@ void drawHud(const GameState& game, const Player& viewer, const Textures& textur
     DrawRectangle(0, 0, screenWidth, HUD_HEIGHT, Color{18, 14, 20, 255});
     DrawRectangle(0, HUD_HEIGHT - 3, screenWidth, 3, Color{110, 78, 40, 255});
 
-    drawPicture(textures.hudFlame, 8.0f, 24.0f, 40.0f, 40.0f, WHITE);
+    // The flame beats faster and bigger when the torch is low
+    float flameSize = 40.0f;
+    if (fuelRatio < 0.3f) {
+        flameSize += 5.0f * sinf(static_cast<float>(GetTime()) * 10.0f);
+    }
+    drawPicture(textures.hudFlame, 28.0f - flameSize / 2.0f, 44.0f - flameSize / 2.0f,
+                flameSize, flameSize, WHITE);
     drawTorchBar(textures, 56, 12, fuelRatio);
     const char* fuelText = TextFormat("%d / %d", static_cast<int>(viewer.fuel + 0.5f),
                                       static_cast<int>(viewer.maxFuel + 0.5f));

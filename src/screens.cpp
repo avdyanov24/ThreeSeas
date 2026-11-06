@@ -43,6 +43,8 @@ const int ERA_COUNT = 3;
 const int PINS_PER_ERA = 3;
 const int PIN_RADIUS = 36;
 const int PIN_SIZE = 64;
+const int EMBER_COUNT = 40;
+const float SCREEN_FADE_SECONDS = 0.3f;
 // Where each maze pin stands on its era map: PIN_POSITIONS[era - 1][pin] = {x, y}
 const int PIN_POSITIONS[ERA_COUNT][PINS_PER_ERA][2] = {
     {{790, 240}, {600, 420}, {700, 305}},
@@ -99,6 +101,15 @@ bool drawButtonStyle(const char* label, int x, int y, int width, int height,
     Rectangle destination = {static_cast<float>(x), static_cast<float>(y),
                              static_cast<float>(width), static_cast<float>(height)};
 
+    if (isHighlighted) {
+        // The highlighted button breathes a little, so it is clear what is selected
+        float grow = 1.0f + 0.03f * sinf(static_cast<float>(GetTime()) * 5.0f);
+        destination.x -= destination.width * (grow - 1.0f) / 2.0f;
+        destination.y -= destination.height * (grow - 1.0f) / 2.0f;
+        destination.width *= grow;
+        destination.height *= grow;
+    }
+
     if (buttonTexture.id != 0) {
         Rectangle source = {0.0f, 0.0f, static_cast<float>(buttonTexture.width),
                             static_cast<float>(buttonTexture.height)};
@@ -143,8 +154,8 @@ void drawPanel(int x, int y, int width, int height) {
 
 // Draws text centred on centerX with a dark plate behind it, so it stays readable over
 // art. alpha (0 to 1) fades the plate and the text. Returns nothing.
-void drawTextPlate(const char* text, int centerX, int y, int fontSize, Color color,
-                   float alpha = 1.0f) {
+void drawFadedTextPlate(const char* text, int centerX, int y, int fontSize, Color color,
+                        float alpha) {
     int width = MeasureText(text, fontSize);
     Rectangle plate = {static_cast<float>(centerX - width / 2 - 14), static_cast<float>(y - 6),
                        static_cast<float>(width + 28), static_cast<float>(fontSize + 12)};
@@ -153,8 +164,14 @@ void drawTextPlate(const char* text, int centerX, int y, int fontSize, Color col
     DrawText(text, centerX - width / 2, y, fontSize, Fade(color, alpha));
 }
 
-// Draws a square picture of the given size with its top-left corner at (x, y).
-void drawIcon(const Texture2D& texture, int x, int y, int size) {
+// Draws text centred on centerX with a dark plate behind it. Returns nothing.
+void drawTextPlate(const char* text, int centerX, int y, int fontSize, Color color) {
+    drawFadedTextPlate(text, centerX, y, fontSize, color, 1.0f);
+}
+
+// Draws a square picture of the given size with its top-left corner at (x, y). alpha (0 to 1)
+// fades it. Returns nothing.
+void drawIcon(const Texture2D& texture, int x, int y, int size, float alpha) {
     if (texture.id == 0) {
         return;
     }
@@ -162,13 +179,82 @@ void drawIcon(const Texture2D& texture, int x, int y, int size) {
                         static_cast<float>(texture.height)};
     Rectangle destination = {static_cast<float>(x), static_cast<float>(y),
                              static_cast<float>(size), static_cast<float>(size)};
-    DrawTexturePro(texture, source, destination, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+    DrawTexturePro(texture, source, destination, Vector2{0.0f, 0.0f}, 0.0f, Fade(WHITE, alpha));
 }
 
 // Returns the screen position of the centre of a pin (0 to 2) on the map of an era (1 to 3).
 Vector2 getPinCenter(int era, int pin) {
     return Vector2{static_cast<float>(PIN_POSITIONS[era - 1][pin][0]),
                    static_cast<float>(PIN_POSITIONS[era - 1][pin][1])};
+}
+
+// Returns a repeatable pseudo-random number from 0 to 1 for an index, so every spark keeps
+// its own place without remembering anything between frames.
+float getHash(int index, int salt) {
+    float value = sinf(static_cast<float>(index) * 12.9898f + static_cast<float>(salt) * 78.233f) *
+                  43758.5453f;
+    return value - floorf(value);
+}
+
+// Returns how far an animation is (0 to 1) when it starts after delay seconds and lasts
+// duration seconds.
+float getProgress(float seconds, float delay, float duration) {
+    float progress = (seconds - delay) / duration;
+    if (progress < 0.0f) {
+        return 0.0f;
+    }
+    return progress > 1.0f ? 1.0f : progress;
+}
+
+// Returns an eased value (0 to 1) that overshoots a little before it settles, for pop-in
+// animations. progress goes from 0 to 1.
+float getPopScale(float progress) {
+    float back = progress - 1.0f;
+    return 1.0f + 2.70158f * back * back * back + 1.70158f * back * back;
+}
+
+// Draws small glowing sparks that float up the window, like embers from a torch. Every
+// spark's place is worked out from the time alone, so nothing has to be remembered.
+void drawEmbers() {
+    float time = static_cast<float>(GetTime());
+    float travel = static_cast<float>(SCREEN_HEIGHT + 40);
+    for (int i = 0; i < EMBER_COUNT; i++) {
+        float speed = 20.0f + 40.0f * getHash(i, 1);
+        float rise = fmodf(time * speed + getHash(i, 2) * travel, travel);
+        float x = getHash(i, 3) * static_cast<float>(SCREEN_WIDTH) +
+                  14.0f * sinf(time * 0.8f + static_cast<float>(i));
+        float y = static_cast<float>(SCREEN_HEIGHT + 20) - rise;
+        float flicker = 0.6f + 0.4f * sinf(time * 6.0f + static_cast<float>(i) * 1.7f);
+        int size = 2 + i % 3;
+        DrawRectangle(static_cast<int>(x), static_cast<int>(y), size, size,
+                      Fade(Color{255, 175, 70, 255}, (1.0f - rise / travel) * flicker));
+    }
+}
+
+// Darkens the whole window so text is easy to read, then draws the floating embers.
+void drawDarkLayer() {
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+    drawEmbers();
+}
+
+// Draws an art texture like drawScreenBackground, but zoomed in a little and drifting slowly,
+// so menu pictures never stand still. Use it only where nothing is drawn at a fixed place
+// on the picture.
+void drawMovingBackground(const Texture2D& texture, Color fallbackColor) {
+    if (texture.id == 0) {
+        ClearBackground(fallbackColor);
+        return;
+    }
+    float time = static_cast<float>(GetTime());
+    float zoom = 0.93f + 0.02f * sinf(time * 0.35f);
+    float width = static_cast<float>(texture.width) * zoom;
+    float height = static_cast<float>(texture.height) * zoom;
+    float x = (static_cast<float>(texture.width) - width) * (0.5f + 0.5f * sinf(time * 0.21f));
+    float y = (static_cast<float>(texture.height) - height) * (0.5f + 0.5f * cosf(time * 0.17f));
+    Rectangle source = {x, y, width, height};
+    Rectangle destination = {0.0f, 0.0f, static_cast<float>(SCREEN_WIDTH),
+                             static_cast<float>(SCREEN_HEIGHT)};
+    DrawTexturePro(texture, source, destination, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
 }
 
 // Returns the next menu index, wrapping around in the requested direction.
@@ -889,8 +975,8 @@ Screen updateNameEntry(UiState& ui) {
 
 // Draws the name entry screen: heading, text input with its error, hint and Back.
 void drawNameEntry(const Textures& textures, const UiState& ui) {
-    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
-    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+    drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    drawDarkLayer();
 
     drawPanel(340, 150, 600, 360);
     const char* heading = "Enter your name";
@@ -912,21 +998,25 @@ void drawNameEntry(const Textures& textures, const UiState& ui) {
 
 // Draws the title screen and its route into the main menu.
 void drawTitleScreen(const Textures& textures, const UiState& ui) {
-    drawScreenBackground(textures.titleScreen, Color{12, 10, 16, 255});
-    drawTextPlate("Press Enter to continue", SCREEN_WIDTH / 2, 540, 24, RAYWHITE);
+    drawMovingBackground(textures.titleScreen, Color{12, 10, 16, 255});
+    drawEmbers();
+    float pulse = 0.65f + 0.35f * sinf(static_cast<float>(GetTime()) * 3.0f);
+    drawFadedTextPlate("Press Enter to continue", SCREEN_WIDTH / 2, 540, 24, RAYWHITE, pulse);
     drawButtonStyle("Start", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
                     ui.selectedItem == 0, false, textures);
 }
 
 // Draws the main menu over the supplied corridor and logo art.
 void drawMainMenu(const Textures& textures, const UiState& ui) {
-    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    drawEmbers();
 
     if (textures.menuLogo.id != 0) {
         Rectangle source = {0.0f, 0.0f, static_cast<float>(textures.menuLogo.width),
                             static_cast<float>(textures.menuLogo.height)};
         Rectangle destination = {
-            static_cast<float>((SCREEN_WIDTH - LOGO_WIDTH) / 2), 40.0f,
+            static_cast<float>((SCREEN_WIDTH - LOGO_WIDTH) / 2),
+            40.0f + 5.0f * sinf(static_cast<float>(GetTime()) * 1.6f),
             static_cast<float>(LOGO_WIDTH), static_cast<float>(LOGO_HEIGHT)};
         DrawTexturePro(textures.menuLogo, source, destination, Vector2{0.0f, 0.0f}, 0.0f,
                        WHITE);
@@ -942,8 +1032,8 @@ void drawMainMenu(const Textures& textures, const UiState& ui) {
 // Draws the leaderboard: the fastest result of every level on the left and the players
 // with the most multiplayer wins on the right, then the Back button.
 void drawLeaderboard(const Textures& textures, const UiState& ui) {
-    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
-    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+    drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    drawDarkLayer();
     drawTextPlate("Leaderboard", SCREEN_WIDTH / 2, 24, 38, GOLD);
 
     drawPanel(60, 90, 600, 470);
@@ -951,21 +1041,24 @@ void drawLeaderboard(const Textures& textures, const UiState& ui) {
 
     DrawText("Fastest times", 84, 106, 26, GOLD);
     for (int i = 0; i < LEVEL_COUNT; i++) {
+        // Each row slides in from the left, one after the other
+        float rowProgress = getProgress(ui.screenSeconds, 0.05f * static_cast<float>(i), 0.3f);
+        int shift = static_cast<int>((1.0f - rowProgress) * -40.0f);
         int y = 156 + i * 44;
-        DrawText(TextFormat("%d  %s", i + 1, getLevel(i + 1)->place.c_str()), 84, y, 22,
-                 RAYWHITE);
+        DrawText(TextFormat("%d  %s", i + 1, getLevel(i + 1)->place.c_str()), 84 + shift, y, 22,
+                 Fade(RAYWHITE, rowProgress));
         if (!ui.hasLevelBest[i]) {
-            DrawText("no result yet", 330, y + 2, 20, GRAY);
+            DrawText("no result yet", 330 + shift, y + 2, 20, Fade(GRAY, rowProgress));
             continue;
         }
         const Result& best = ui.levelBest[i];
         int seconds = static_cast<int>(best.bestSeconds);
         DrawText(TextFormat("%s  %02d:%02d", best.name.c_str(), seconds / 60, seconds % 60),
-                 330, y + 2, 20, GOLD);
+                 330 + shift, y + 2, 20, Fade(GOLD, rowProgress));
         for (int star = 0; star < 3; star++) {
             const Texture2D& icon = star < best.stars ? textures.starFilled
                                                       : textures.starEmpty;
-            drawIcon(icon, 560 + star * 30, y - 2, 28);
+            drawIcon(icon, 560 + star * 30 + shift, y - 2, 28, rowProgress);
         }
     }
 
@@ -974,12 +1067,17 @@ void drawLeaderboard(const Textures& textures, const UiState& ui) {
         DrawText("No multiplayer wins yet.", 724, 160, 22, GRAY);
     }
     for (int i = 0; i < ui.topWinCount; i++) {
+        float delay = 0.2f + 0.08f * static_cast<float>(i);
+        float rowProgress = getProgress(ui.screenSeconds, delay, 0.3f);
+        int shift = static_cast<int>((1.0f - rowProgress) * 40.0f);
         int y = 156 + i * 52;
-        DrawText(TextFormat("%d", i + 1), 724, y, 26, i == 0 ? GOLD : RAYWHITE);
-        DrawText(ui.topWins[i].name.c_str(), 770, y, 26, RAYWHITE);
+        DrawText(TextFormat("%d", i + 1), 724 + shift, y, 26,
+                 Fade(i == 0 ? GOLD : RAYWHITE, rowProgress));
+        DrawText(ui.topWins[i].name.c_str(), 770 + shift, y, 26, Fade(RAYWHITE, rowProgress));
         const char* count =
             TextFormat(ui.topWins[i].wins == 1 ? "%d win" : "%d wins", ui.topWins[i].wins);
-        DrawText(count, 1180 - MeasureText(count, 24), y + 2, 24, GOLD);
+        DrawText(count, 1180 - MeasureText(count, 24) + shift, y + 2, 24,
+                 Fade(GOLD, rowProgress));
     }
 
     drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
@@ -989,8 +1087,8 @@ void drawLeaderboard(const Textures& textures, const UiState& ui) {
 // Draws the How to Play screen: the campaign rules on the left, the multiplayer rules on
 // the right, each with a small picture, then the Back button.
 void drawHowToPlay(const Textures& textures, const UiState& ui) {
-    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
-    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+    drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    drawDarkLayer();
     drawTextPlate("How to Play", SCREEN_WIDTH / 2, 14, 38, GOLD);
     drawPanel(30, 72, 610, 500);
     drawPanel(660, 72, 590, 500);
@@ -1005,11 +1103,14 @@ void drawHowToPlay(const Textures& textures, const UiState& ui) {
     DrawText("Campaign (one player)", 56, 90, 26, GOLD);
     DrawText("Multiplayer (2 to 4 players)", 686, 90, 26, GOLD);
     for (int i = 0; i < HOWTO_ROWS; i++) {
+        // Each row slides in from the side of its column, one after the other
+        float rowProgress = getProgress(ui.screenSeconds, 0.05f * static_cast<float>(i), 0.3f);
+        int shift = static_cast<int>((1.0f - rowProgress) * 40.0f);
         int y = 138 + i * 47;
-        drawIcon(*campaignIcons[i], 56, y - 4, 40);
-        DrawText(HOWTO_CAMPAIGN_TEXT[i], 112, y + 6, 19, RAYWHITE);
-        drawIcon(textures.howTo[HOWTO_MULTIPLAYER_ICONS[i]], 686, y - 4, 40);
-        DrawText(HOWTO_MULTIPLAYER_TEXT[i], 742, y + 6, 19, RAYWHITE);
+        drawIcon(*campaignIcons[i], 56 - shift, y - 4, 40, rowProgress);
+        DrawText(HOWTO_CAMPAIGN_TEXT[i], 112 - shift, y + 6, 19, Fade(RAYWHITE, rowProgress));
+        drawIcon(textures.howTo[HOWTO_MULTIPLAYER_ICONS[i]], 686 + shift, y - 4, 40, rowProgress);
+        DrawText(HOWTO_MULTIPLAYER_TEXT[i], 742 + shift, y + 6, 19, Fade(RAYWHITE, rowProgress));
     }
 
     drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
@@ -1020,8 +1121,8 @@ void drawHowToPlay(const Textures& textures, const UiState& ui) {
 // the hero panel, the maze size input, a hint and the Back button.
 void drawLevelIntro(const Textures& textures, const UiState& ui) {
     const Level& level = *getLevel(ui.selectedLevel);
-    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
-    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+    drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    drawDarkLayer();
 
     const char* heading = level.place.c_str();
     if (level.year != 0) {
@@ -1054,7 +1155,7 @@ void drawLevelIntro(const Textures& textures, const UiState& ui) {
     DrawLine(180, 350, 1100, 350, Color{110, 78, 40, 255});
 
     const Texture2D& portrait = textures.heroes[ui.characters[0]].portrait;
-    drawIcon(portrait, 180, 372, 100);
+    drawIcon(portrait, 180, 372, 100, 1.0f);
     const Character* hero = getCharacter(ui.characters[0]);
     DrawText(hero->name.c_str(), 300, 376, 28, GOLD);
     DrawText(hero->power.c_str(), 300, 414, 22, RAYWHITE);
@@ -1082,6 +1183,8 @@ void drawCampaignPin(const Textures& textures, const UiState& ui, int pin, float
     int levelId = getLevelIdOfPin(ui.selectedEra, pin);
     const Level* level = getLevel(levelId);
     Vector2 center = getPinCenter(ui.selectedEra, pin);
+    // Every pin floats up and down a little, each at its own moment
+    center.y += 3.0f * sinf(static_cast<float>(GetTime()) * 2.0f + static_cast<float>(pin) * 1.3f);
     bool isOpen = isPinOpen(ui, levelId);
     Result best = {};
     bool isFinished = getBestResult(ui.playerName, levelId, best);
@@ -1107,17 +1210,17 @@ void drawCampaignPin(const Textures& textures, const UiState& ui, int pin, float
                  Fade(RAYWHITE, (0.5f + 0.4f * (1.0f - pulse)) * ringAlpha));
     }
     drawIcon(*pinTexture, static_cast<int>(center.x) - size / 2,
-             static_cast<int>(center.y) - size / 2, size);
+             static_cast<int>(center.y) - size / 2, size, alpha);
 
     int labelX = static_cast<int>(center.x);
     int labelY = static_cast<int>(center.y) + size / 2 + 10;
-    drawTextPlate(TextFormat("%d. %s", levelId, level->place.c_str()), labelX, labelY, 20,
-                  RAYWHITE, alpha);
+    drawFadedTextPlate(TextFormat("%d. %s", levelId, level->place.c_str()), labelX, labelY, 20,
+                       RAYWHITE, alpha);
     if (isFinished) {
-        drawTextPlate(TextFormat("Stars: %d", best.stars), labelX, labelY + 34, 18, GOLD,
-                      alpha);
+        drawFadedTextPlate(TextFormat("Stars: %d", best.stars), labelX, labelY + 34, 18, GOLD,
+                           alpha);
     } else if (!isOpen) {
-        drawTextPlate("Locked", labelX, labelY + 34, 18, GRAY, alpha);
+        drawFadedTextPlate("Locked", labelX, labelY + 34, 18, GRAY, alpha);
     }
 }
 
@@ -1127,8 +1230,8 @@ void drawCampaignMap(const Textures& textures, const UiState& ui) {
     if (mapIndex >= 0 && mapIndex < ERA_MAP_COUNT && textures.eraMaps[mapIndex].id != 0) {
         drawScreenBackground(textures.eraMaps[mapIndex], Color{12, 10, 16, 255});
     } else {
-        drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+        drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
+        drawDarkLayer();
     }
 
     drawTextPlate("Campaign", SCREEN_WIDTH / 2, 36, 38, GOLD);
@@ -1162,7 +1265,7 @@ void drawCampaignMap(const Textures& textures, const UiState& ui) {
     }
 
     const char* eraName = getLevel(getLevelIdOfPin(ui.selectedEra, 0))->era.c_str();
-    drawTextPlate(eraName, 330, 188, 26, RAYWHITE, fadeProgress);
+    drawFadedTextPlate(eraName, 330, 188, 26, RAYWHITE, fadeProgress);
 
     for (int pin = 0; pin < PINS_PER_ERA; pin++) {
         drawCampaignPin(textures, ui, pin, fadeProgress);
@@ -1289,10 +1392,10 @@ Screen updatePause(GameState& game, UiState& ui) {
         return PLAYING;
     }
     if (choice == 2) {
-        bool wasMultiplayer = game.isMultiplayer;
+        bool isMultiplayer = game.isMultiplayer;
         destroyGame(game);
         ui.selectedItem = 0;
-        if (wasMultiplayer) {
+        if (isMultiplayer) {
             return MAIN_MENU;
         }
         return CAMPAIGN_MAP;
@@ -1303,7 +1406,7 @@ Screen updatePause(GameState& game, UiState& ui) {
 // Draws the paused maze under a dark layer with the heading and the pause buttons.
 void drawPause(const GameState& game, const Textures& textures, const UiState& ui) {
     drawGameplay(game, textures);
-    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+    drawDarkLayer();
     int headingWidth = MeasureText("Paused", 38);
     DrawText("Paused", (SCREEN_WIDTH - headingWidth) / 2, 200, 38, GOLD);
     const char* const* items = game.isMultiplayer ? PAUSE_ITEMS_MP : PAUSE_ITEMS;
@@ -1336,17 +1439,26 @@ Screen updateResult(GameState& game, UiState& ui) {
 // "Your torch went out", and the Play again and Back to map buttons.
 void drawResult(const GameState& game, const Textures& textures, const UiState& ui) {
     bool isWin = ui.resultStars > 0;
-    drawScreenBackground(isWin ? textures.resultWin : textures.resultLose,
+    drawMovingBackground(isWin ? textures.resultWin : textures.resultLose,
                          Color{12, 10, 16, 255});
 
+    drawEmbers();
     const char* heading = isWin ? "Maze complete!" : "Your torch went out";
-    drawTextPlate(heading, SCREEN_WIDTH / 2, 100, 38, isWin ? GOLD : RED);
+    float headingProgress = getProgress(ui.screenSeconds, 0.0f, 0.4f);
+    drawFadedTextPlate(heading, SCREEN_WIDTH / 2,
+                       100 - static_cast<int>((1.0f - headingProgress) * 40.0f), 38,
+                       isWin ? GOLD : RED, headingProgress);
 
     if (isWin) {
         for (int i = 0; i < 3; i++) {
+            // The stars pop in one after the other
+            float starProgress = getProgress(ui.screenSeconds, 0.4f + 0.3f * static_cast<float>(i),
+                                             0.4f);
+            int starSize = static_cast<int>(80.0f * getPopScale(starProgress));
             const Texture2D& star = i + 1 <= ui.resultStars ? textures.starFilled
                                                             : textures.starEmpty;
-            drawIcon(star, SCREEN_WIDTH / 2 - 120 + i * 80, 170, 80);
+            drawIcon(star, SCREEN_WIDTH / 2 - 80 + i * 80 - starSize / 2, 210 - starSize / 2,
+                     starSize, starProgress > 0.0f ? 1.0f : 0.0f);
         }
 
         int seconds = static_cast<int>(ui.resultSeconds);
@@ -1376,8 +1488,8 @@ void drawSetupLabel(const char* text, int y, bool isFocused) {
 // Draws the multiplayer setup form: arena, player count, maze size, one row per player
 // with name and hero, the first error in red, a hint and the Back button.
 void drawMultiplayerSetup(const Textures& textures, const UiState& ui) {
-    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
-    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+    drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    drawDarkLayer();
 
     int headingWidth = MeasureText("Multiplayer", 38);
     DrawText("Multiplayer", (SCREEN_WIDTH - headingWidth) / 2, 24, 38, GOLD);
@@ -1483,6 +1595,9 @@ Screen updateMultiplayerGame(GameState& game, UiState& ui, float deltaTime) {
         ui.selectedItem = 0;
         return PAUSED;
     }
+    for (int i = 0; i < game.playerCount; i++) {
+        updateVisualPosition(game.players[i], deltaTime);
+    }
     Player& player = game.players[game.currentPlayer];
     if (IsKeyPressed(KEY_ENTER)) {
         return endMultiplayerTurn(game, ui);
@@ -1533,7 +1648,19 @@ Screen updateMultiplayerGame(GameState& game, UiState& ui, float deltaTime) {
 
 // Draws the black pass screen with the name of the player whose turn comes next.
 void drawPassScreen(const GameState& game, const Textures& textures) {
-    drawScreenBackground(textures.passScreen, BLACK);
+    drawMovingBackground(textures.passScreen, BLACK);
+    // A warm glow breathes around the torch flame
+    float glowPulse = 0.35f + 0.15f * sinf(static_cast<float>(GetTime()) * 2.5f);
+    if (textures.glow.id != 0) {
+        BeginBlendMode(BLEND_ADDITIVE);
+        Rectangle glowSource = {0.0f, 0.0f, static_cast<float>(textures.glow.width),
+                                static_cast<float>(textures.glow.height)};
+        Rectangle glowDestination = {340.0f, -90.0f, 600.0f, 600.0f};
+        DrawTexturePro(textures.glow, glowSource, glowDestination, Vector2{0.0f, 0.0f}, 0.0f,
+                       Fade(WHITE, glowPulse));
+        EndBlendMode();
+    }
+    drawEmbers();
 
     std::string message = "Pass the laptop.";
     if (game.players != nullptr && game.currentPlayer >= 0 &&
@@ -1547,8 +1674,9 @@ void drawPassScreen(const GameState& game, const Textures& textures) {
 
     int enterWidth = MeasureText("Press Enter.", 28);
     int enterX = (SCREEN_WIDTH - enterWidth) / 2;
-    DrawText("Press Enter.", enterX + 2, 622, 28, BLACK);
-    DrawText("Press Enter.", enterX, 620, 28, RAYWHITE);
+    float enterPulse = 0.6f + 0.4f * sinf(static_cast<float>(GetTime()) * 3.0f);
+    DrawText("Press Enter.", enterX + 2, 622, 28, Fade(BLACK, enterPulse));
+    DrawText("Press Enter.", enterX, 620, 28, Fade(RAYWHITE, enterPulse));
 }
 
 // Handles the multiplayer result screen. Returns PLAYING for Rematch (after the game is
@@ -1576,7 +1704,8 @@ Screen updateMultiplayerResult(GameState& game, UiState& ui) {
 // Draws the multiplayer result: the winner and their hero, or a draw, and the Rematch
 // and Menu buttons.
 void drawMultiplayerResult(const GameState& game, const Textures& textures, const UiState& ui) {
-    drawScreenBackground(textures.multiplayerResult, Color{12, 10, 16, 255});
+    drawMovingBackground(textures.multiplayerResult, Color{12, 10, 16, 255});
+    drawEmbers();
 
     if (game.players != nullptr && game.winner >= 0 && game.winner < game.playerCount) {
         const Player& winner = game.players[game.winner];
@@ -1617,8 +1746,8 @@ Screen updateSettings(UiState& ui) {
 // Draws the settings screen: the heading, the Sound, Free Play and Back buttons, and a
 // note about Free Play.
 void drawSettings(const Textures& textures, const UiState& ui) {
-    drawScreenBackground(textures.menuBackground, Color{12, 10, 16, 255});
-    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 165});
+    drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
+    drawDarkLayer();
 
     drawPanel(380, 150, 520, 400);
     int headingWidth = MeasureText("Settings", 38);
@@ -1690,6 +1819,7 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
             useMap(game.maze, game.players[0]);
         }
         updateCampaign(game, heldDirection, deltaTime);
+        updateVisualPosition(game.players[0], deltaTime);
         return checkLevelEnd(game, ui);
     }
 
@@ -1767,6 +1897,12 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
         drawLeaderboard(textures, ui);
     } else if (screen == HOW_TO_PLAY) {
         drawHowToPlay(textures, ui);
+    }
+
+    // Every screen fades in from black when it opens
+    if (ui.screenSeconds < SCREEN_FADE_SECONDS) {
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
+                      Fade(BLACK, 1.0f - ui.screenSeconds / SCREEN_FADE_SECONDS));
     }
 }
 

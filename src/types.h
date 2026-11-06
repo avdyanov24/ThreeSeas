@@ -81,6 +81,8 @@ struct Player {
     bool isOut;          // torch went out
     int turnsToSkip;     // multiplayer trap penalty
     float stuckSeconds;  // campaign trap penalty
+    float visualRow, visualCol;  // where the hero is drawn: slides towards row and col
+    Direction facing;            // the way the hero looks, for the walking pictures
     bool** seen;         // this player's memory of the maze: seen[row][col]
 };
 
@@ -151,6 +153,7 @@ struct UiState {
     float resultSeconds;       // time of the level that just ended
     int resultStars;           // stars of the level that just ended, 0 when the torch went out
     bool isMouseActive;
+    float screenSeconds;       // seconds since the current screen opened, for animations
     bool isExitRequested;
     bool isMultiplayerGame;    // true when the game on screen is a multiplayer game
     int selectedEra;           // 1 to 3
