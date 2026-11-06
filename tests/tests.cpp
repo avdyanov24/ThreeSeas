@@ -874,6 +874,32 @@ void testMultiplayerStart(int& failures) {
     destroyGame(game);
 }
 
+// T24: turn time grows with the maze and shrinks every round; player count and hero checks.
+void testTurnTimeAndValidation(int& failures) {
+    check("T24 size 20 starts with 12 seconds", getTurnSeconds(1, 2, 20) == 12.0f, failures);
+    check("T24 size 50 starts with 18 seconds", getTurnSeconds(1, 2, 50) == 18.0f, failures);
+    check("T24 both players of a round get the same time",
+          getTurnSeconds(2, 2, 20) == 12.0f, failures);
+    check("T24 the next round is 1 second shorter", getTurnSeconds(3, 2, 20) == 11.0f,
+          failures);
+    check("T24 the time never drops below half", getTurnSeconds(500, 2, 20) == 6.0f, failures);
+
+    check("T24 1 player is not enough", !isValidPlayerCount(1), failures);
+    check("T24 2 players are valid", isValidPlayerCount(2), failures);
+    check("T24 4 players are valid", isValidPlayerCount(4), failures);
+    check("T24 5 players are too many", !isValidPlayerCount(5), failures);
+
+    Player players[3] = {};
+    players[0].character = KRUM;
+    players[1].character = BORIS;
+    players[2].character = LEVSKI;
+    check("T24 a hero of the first players is taken", isCharacterTaken(players, 2, KRUM),
+          failures);
+    check("T24 a hero not yet chosen is free", !isCharacterTaken(players, 2, LEVSKI), failures);
+    check("T24 no players means no hero is taken", !isCharacterTaken(nullptr, 0, KRUM),
+          failures);
+}
+
 int main() {
 	int failures = 0;
     testSizeValidation(failures);
@@ -901,6 +927,7 @@ int main() {
     testUnlocks(failures);
     testPlaceFeatures(failures);
     testMultiplayerStart(failures);
+    testTurnTimeAndValidation(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";

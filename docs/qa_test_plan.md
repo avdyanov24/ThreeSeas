@@ -175,3 +175,11 @@
 - **Input:** Start a size 30 multiplayer game with 4 players, and a campaign game of size 10.
 - **Expected result:** Players start in the four corners on free floor, there is one exit at least size / 3 steps from every start and reachable from each, and the campaign exit stays bottom-right.
 - **Actual result:** Passed on 6 Nov 2026 (8 checks, all PASS)
+
+### T24: Turn time and player checks
+
+- **Purpose:** Check the turn time rules and the player count and hero checks.
+- **Function tested:** `getTurnSeconds`, `isValidPlayerCount`, `isCharacterTaken`
+- **Input:** Turn times for sizes 20 and 50 over several rounds; 1, 2, 4 and 5 players; heroes of the first players.
+- **Expected result:** 12 and 18 seconds at the start, 1 second less per round, never below half; 2 to 4 players are valid; a hero already chosen is taken.
+- **Actual result:** Passed on 6 Nov 2026 (12 checks, all PASS)
