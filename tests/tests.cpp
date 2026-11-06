@@ -617,6 +617,58 @@ void testNextPlayer(int& failures) {
     check("T16 skipped player's penalty is cleared", players[1].turnsToSkip == 0, failures);
 }
 
+// Checks multiplayer winners for the exit, last burning player, draw, and ongoing game.
+void testMultiplayerWinner(int& failures) {
+    GameState game = createEmptyGame();
+    game.maze = createMovementTestMaze();
+    game.maze.cells[2][2].tile = EXIT;
+    Player players[3] = {};
+    game.players = players;
+    game.playerCount = 3;
+    players[0].maxFuel = 100.0f;
+    players[0].fuel = 50.0f;
+    players[0].row = 0;
+    players[0].col = 0;
+    players[1].maxFuel = 100.0f;
+    players[1].fuel = 50.0f;
+    players[1].row = 0;
+    players[1].col = 0;
+    players[2].maxFuel = 100.0f;
+    players[2].fuel = 50.0f;
+    players[2].row = 0;
+    players[2].col = 0;
+
+    players[1].row = 2;
+    players[1].col = 2;
+    checkWinner(game);
+    check("T17 player on the exit wins", game.winner == 1, failures);
+
+    game.winner = NO_WINNER;
+    players[1].row = 0;
+    players[1].col = 0;
+    players[0].isOut = true;
+    players[2].isOut = true;
+    checkWinner(game);
+    check("T17 last player with fuel wins", game.winner == 1, failures);
+
+    game.winner = NO_WINNER;
+    players[0].isOut = true;
+    players[1].isOut = true;
+    players[2].isOut = true;
+    checkWinner(game);
+    check("T17 all torches out results in a draw", game.winner == DRAW, failures);
+
+    game.winner = NO_WINNER;
+    players[0].isOut = false;
+    players[1].isOut = false;
+    players[2].isOut = false;
+    checkWinner(game);
+    check("T17 game continues when no player reaches the exit",
+          game.winner == NO_WINNER, failures);
+
+    destroyMaze(game.maze);
+}
+
 
 // Prints the test summary and returns failure when any check fails.
 int main() {
