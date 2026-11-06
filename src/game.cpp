@@ -49,6 +49,9 @@ void createPlayers(GameState& game, int count, const std::string names[],
         if (game.isMultiplayer) {
             getSpawnCell(game.maze, i, player.row, player.col);
         }
+        player.visualRow = static_cast<float>(player.row);
+        player.visualCol = static_cast<float>(player.col);
+        player.facing = DOWN;
         player.maxFuel = game.maze.size * fuelFactor;
         if (player.character == ASPARUH) {
             player.maxFuel *= 1.5f;
@@ -104,6 +107,7 @@ bool tryMove(Maze& maze, Player& player, Direction direction) {
         return false;
     }
 
+    player.facing = direction;
     const int nextRow = player.row + rowStep(direction);
     const int nextCol = player.col + colStep(direction);
     if (!canEnter(maze, player, nextRow, nextCol)) {
@@ -308,6 +312,21 @@ bool placeTrap(Maze& maze, Player& player, int playerIndex) {
     cell.trapOwner = playerIndex;
     player.traps--;
     return true;
+}
+
+// Moves one drawn coordinate towards its target by at most step and returns the new value.
+static float approachValue(float current, float target, float step) {
+    if (current + step >= target && current - step <= target) {
+        return target;
+    }
+    return current < target ? current + step : current - step;
+}
+
+// Slides the drawn position of the player towards their cell at 8 cells per second.
+void updateVisualPosition(Player& player, float deltaTime) {
+    float step = deltaTime * 8.0f;
+    player.visualRow = approachValue(player.visualRow, static_cast<float>(player.row), step);
+    player.visualCol = approachValue(player.visualCol, static_cast<float>(player.col), step);
 }
 
 // Returns whether the player is standing on the maze exit.

@@ -15,6 +15,7 @@ const int LEVEL_COUNT = 9;
 const int ARENA_COUNT = 3;
 const int CHARACTER_COUNT = 6;
 const int MAX_RECORDS = 500;  // most lines read from a save file
+const int LEADERBOARD_WINS = 5;  // players shown in the most-wins list
 
 const int NO_TRAP = -1;     // Cell::trapOwner: no trap on this cell
 const int LEVEL_TRAP = -2;  // Cell::trapOwner: trap placed by the level (campaign)
@@ -80,6 +81,8 @@ struct Player {
     bool isOut;          // torch went out
     int turnsToSkip;     // multiplayer trap penalty
     float stuckSeconds;  // campaign trap penalty
+    float visualRow, visualCol;  // where the hero is drawn: slides towards row and col
+    Direction facing;            // the way the hero looks, for the walking pictures
     bool** seen;         // this player's memory of the maze: seen[row][col]
 };
 
@@ -150,6 +153,7 @@ struct UiState {
     float resultSeconds;       // time of the level that just ended
     int resultStars;           // stars of the level that just ended, 0 when the torch went out
     bool isMouseActive;
+    float screenSeconds;       // seconds since the current screen opened, for animations
     bool isExitRequested;
     bool isMultiplayerGame;    // true when the game on screen is a multiplayer game
     int selectedEra;           // 1 to 3
@@ -160,6 +164,10 @@ struct UiState {
     std::string playerNames[MAX_PLAYERS];
     CharacterId characters[MAX_PLAYERS];
     Settings settings;
+    Result levelBest[LEVEL_COUNT];  // leaderboard: fastest result of each level
+    bool hasLevelBest[LEVEL_COUNT];
+    WinRecord topWins[LEADERBOARD_WINS];  // leaderboard: players with the most wins
+    int topWinCount;
 };
 
 #endif  // TYPES_H

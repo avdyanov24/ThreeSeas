@@ -155,6 +155,7 @@ void placeRandomExit(Maze& maze) {
         maze.cells[picked / maze.size][picked % maze.size].tile = EXIT;
     }
     delete[] rooms;
+    rooms = nullptr;
 }
 
 // Stores the position (row * size + col) of every free floor cell in cells: a FLOOR
@@ -211,6 +212,7 @@ static void scatterOnFloor(Maze& maze, Item item, bool isTrap, int amount, int m
         placed++;
     }
     delete[] cells;
+    cells = nullptr;
 }
 
 // Turns up to amount walls into doors. A door only goes on an inner wall that has floor on
@@ -238,6 +240,7 @@ static void placeDoors(Maze& maze, int amount) {
         maze.cells[candidates[i] / maze.size][candidates[i] % maze.size].tile = DOOR;
     }
     delete[] candidates;
+    candidates = nullptr;
 }
 
 // Turns about 8% of the free floor cells into water (never next to the start).
@@ -257,6 +260,7 @@ static void placeWater(Maze& maze) {
         placed++;
     }
     delete[] cells;
+    cells = nullptr;
 }
 
 // Adds doors, water, level traps, the key, oil and maps. Doors and water come first,

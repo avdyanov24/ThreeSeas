@@ -11,8 +11,9 @@ GameState createEmptyGame();
 void destroyGame(GameState& game);
 
 // Frees any old maze, then builds a new one: createMaze, generatePaths(0, 0),
-// connectExit (multiplayer: placeRandomExit) and placeFeatures. Sets game.level, isMultiplayer, timeSeconds = 0,
-// winner = NO_WINNER and currentPlayer = 0. Does not create players.
+// connectExit (multiplayer: placeRandomExit) and placeFeatures. Sets game.level,
+// isMultiplayer, timeSeconds = 0, winner = NO_WINNER and currentPlayer = 0. Does not
+// create players.
 void startLevel(GameState& game, const Level& level, int size, bool isMultiplayer);
 
 // Creates count players (1 to 4) with their names and characters. Campaign: at (0, 0).
@@ -77,6 +78,11 @@ void useMap(const Maze& maze, Player& player);
 // Multiplayer: puts one of the player's traps on their cell with trapOwner set to
 // playerIndex. Returns false if the player has no trap or the cell already has one.
 bool placeTrap(Maze& maze, Player& player, int playerIndex);
+
+// Moves the drawn position of the player (visualRow, visualCol) towards their real cell, 8
+// cells per second, so the hero slides from cell to cell instead of jumping. Call it once
+// per frame. It never changes row or col.
+void updateVisualPosition(Player& player, float deltaTime);
 
 // Returns true if the player stands on the EXIT tile.
 bool hasReachedExit(const Maze& maze, const Player& player);

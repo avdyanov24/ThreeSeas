@@ -190,6 +190,43 @@ void loadUiTextures(Textures& textures) {
         loadPixelTexture(art + "/01_ui/buttons/ui_button_normal.png");
     textures.buttonHover =
         loadPixelTexture(art + "/01_ui/buttons/ui_button_hover.png");
+
+    const char* const eraMapFiles[ERA_MAP_COUNT] = {
+        "era1_first_state/map_era1_first_state", "era2_second_state/map_era2_second_state",
+        "era3_road_to_liberation/map_era3_road_to_liberation"};
+    for (int i = 0; i < ERA_MAP_COUNT; i++) {
+        textures.eraMaps[i] = loadPixelTexture(art + "/02_era_maps/" + eraMapFiles[i] + ".png");
+    }
+    loadNumbered(textures.pinOpen, PIN_FRAMES, art + "/02_era_maps/pins/pin_open");
+    loadNumbered(textures.pinLocked, PIN_FRAMES, art + "/02_era_maps/pins/pin_locked");
+    loadNumbered(textures.pinFinished, PIN_FRAMES, art + "/02_era_maps/pins/pin_finished");
+    textures.passScreen = loadPixelTexture(art + "/07_screens/pass_screen/pass_screen.png");
+    textures.multiplayerResult =
+        loadPixelTexture(art + "/07_screens/multiplayer_result/multiplayer_result.png");
+    textures.resultWin = loadPixelTexture(art + "/07_screens/result_win/result_win.png");
+    textures.resultLose = loadPixelTexture(art + "/07_screens/result_lose/result_lose.png");
+    textures.starFilled = loadPixelTexture(art + "/01_ui/icons/icon_star_filled.png");
+    textures.starEmpty = loadPixelTexture(art + "/01_ui/icons/icon_star_empty.png");
+
+    std::string hud = art + "/01_ui/hud/";
+    textures.hudFlame = loadPixelTexture(hud + "hud_flame.png");
+    textures.hudTimer = loadPixelTexture(hud + "hud_timer.png");
+    textures.hudSlot = loadPixelTexture(hud + "hud_slot.png");
+    textures.hudMap = loadPixelTexture(hud + "hud_map.png");
+    textures.hudKey = loadPixelTexture(hud + "hud_key.png");
+    textures.hudTrap = loadPixelTexture(hud + "hud_trap.png");
+    textures.hudPortraitFrame = loadPixelTexture(hud + "hud_portrait_frame.png");
+    textures.hudTorchbarFull = loadPixelTexture(hud + "hud_torchbar_full.png");
+    textures.hudTorchbarEmpty = loadPixelTexture(hud + "hud_torchbar_empty.png");
+
+    const char* const howToFiles[HOWTO_ICON_COUNT] = {
+        "torch",   "torch_bar", "oil",         "map",   "door",  "water",
+        "trap",    "stars",     "exit",        "clock", "key_one", "key_two",
+        "key_enter", "pass_laptop", "cold",    "shield", "trophy"};
+    for (int i = 0; i < HOWTO_ICON_COUNT; i++) {
+        textures.howTo[i] =
+            loadPixelTexture(art + "/07_screens/how_to_play/howto_" + howToFiles[i] + ".png");
+    }
 }
 
 // Frees every texture
@@ -199,6 +236,26 @@ void unloadTextures(Textures& textures) {
     unloadOne(textures.menuLogo);
     unloadOne(textures.buttonNormal);
     unloadOne(textures.buttonHover);
+    unloadMany(textures.eraMaps, ERA_MAP_COUNT);
+    unloadOne(textures.passScreen);
+    unloadOne(textures.multiplayerResult);
+    unloadOne(textures.resultWin);
+    unloadOne(textures.resultLose);
+    unloadMany(textures.pinOpen, PIN_FRAMES);
+    unloadMany(textures.pinLocked, PIN_FRAMES);
+    unloadMany(textures.pinFinished, PIN_FRAMES);
+    unloadOne(textures.starFilled);
+    unloadOne(textures.starEmpty);
+    unloadMany(textures.howTo, HOWTO_ICON_COUNT);
+    unloadOne(textures.hudFlame);
+    unloadOne(textures.hudTimer);
+    unloadOne(textures.hudSlot);
+    unloadOne(textures.hudMap);
+    unloadOne(textures.hudKey);
+    unloadOne(textures.hudTrap);
+    unloadOne(textures.hudPortraitFrame);
+    unloadOne(textures.hudTorchbarFull);
+    unloadOne(textures.hudTorchbarEmpty);
     unloadMany(textures.floors, FLOOR_VARIANTS);
     unloadMany(textures.wallTops, WALL_TOP_VARIANTS);
     unloadMany(textures.wallFaces, WALL_FACE_VARIANTS);
@@ -263,8 +320,8 @@ static float getCameraAxis(float center, float worldSize, float screenSize) {
 // Returns the world position shown in the top-left corner of the screen
 Vector2 getCameraOrigin(const Maze& maze, const Player& viewer) {
     float worldSize = static_cast<float>((maze.size + 2) * TILE_SIZE);
-    float centerX = (viewer.col + 1.5f) * TILE_SIZE;
-    float centerY = (viewer.row + 1.5f) * TILE_SIZE;
+    float centerX = (viewer.visualCol + 1.5f) * TILE_SIZE;
+    float centerY = (viewer.visualRow + 1.5f) * TILE_SIZE;
     return Vector2{getCameraAxis(centerX, worldSize, static_cast<float>(GetScreenWidth())),
                    getCameraAxis(centerY, worldSize,
                                  static_cast<float>(GetScreenHeight() - HUD_HEIGHT)) - HUD_HEIGHT};
@@ -604,8 +661,8 @@ void drawTorchLight(const GameState& game, const Player& viewer, const Textures&
         return;
     }
     Vector2 camera = getCameraOrigin(game.maze, viewer);
-    float centerX = (viewer.col + 1.5f) * TILE_SIZE - camera.x;
-    float centerY = (viewer.row + 1.5f) * TILE_SIZE - camera.y;
+    float centerX = (viewer.visualCol + 1.5f) * TILE_SIZE - camera.x;
+    float centerY = (viewer.visualRow + 1.5f) * TILE_SIZE - camera.y;
     float fuelRatio = viewer.maxFuel > 0.0f ? viewer.fuel / viewer.maxFuel : 0.0f;
     float strength = fuelRatio < 0.3f ? 0.10f : 0.03f;
     float time = static_cast<float>(GetTime());
@@ -631,23 +688,97 @@ void drawPlayerSeenBy(const GameState& game, const Player& viewer, const Player&
     if (player.character < ASPARUH || player.character > LEVSKI) {
         return;
     }
-    int frame = static_cast<int>(GetTime() * 5.0) % HERO_FRAMES;
-    const Texture2D& sprite = textures.heroes[player.character].idle[frame];
+    const HeroTextures& hero = textures.heroes[player.character];
+    // The hero walks while the drawn position is still sliding to the real cell
+    float rowGap = player.visualRow - static_cast<float>(player.row);
+    float colGap = player.visualCol - static_cast<float>(player.col);
+    bool isMoving = (rowGap > 0.02f || rowGap < -0.02f || colGap > 0.02f || colGap < -0.02f);
+
+    const Texture2D* frames = hero.idle;
+    double framesPerSecond = 5.0;
+    bool isMirrored = false;
+    if (player.stuckSeconds > 0.0f) {
+        frames = hero.stuck;
+    } else if (isMoving) {
+        framesPerSecond = 12.0;
+        if (player.facing == UP) {
+            frames = hero.walkUp;
+        } else if (player.facing == DOWN) {
+            frames = hero.walkDown;
+        } else {
+            frames = hero.walkSide;
+            isMirrored = player.facing == LEFT;
+        }
+    }
+    const Texture2D& sprite = frames[static_cast<int>(GetTime() * framesPerSecond) % HERO_FRAMES];
     if (sprite.id == 0) {
         return;
     }
     Vector2 camera = getCameraOrigin(game.maze, viewer);
     float width = static_cast<float>(sprite.width * TILE_SCALE);
     float height = static_cast<float>(sprite.height * TILE_SCALE);
-    Rectangle source = {0.0f, 0.0f, static_cast<float>(sprite.width),
+    // A negative source width mirrors the picture, so the side sprite can face left
+    Rectangle source = {0.0f, 0.0f, static_cast<float>(isMirrored ? -sprite.width : sprite.width),
                         static_cast<float>(sprite.height)};
-    Rectangle destination = {(player.col + 1.5f) * TILE_SIZE - camera.x - width / 2.0f,
-                             (player.row + 2.0f) * TILE_SIZE - camera.y - height,
+    Rectangle destination = {(player.visualCol + 1.5f) * TILE_SIZE - camera.x - width / 2.0f,
+                             (player.visualRow + 2.0f) * TILE_SIZE - camera.y - height,
                              width, height};
     DrawTexturePro(sprite, source, destination, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
 }
 
-// Draws the fuel bar, timer, inventory, place and year, and the hero portrait above the maze.
+// Draws a picture stretched to the rectangle, with a tint. A missing picture draws nothing.
+static void drawPicture(const Texture2D& texture, float x, float y, float width, float height,
+                        Color tint) {
+    if (texture.id == 0) {
+        return;
+    }
+    Rectangle source = {0.0f, 0.0f, static_cast<float>(texture.width),
+                        static_cast<float>(texture.height)};
+    Rectangle destination = {x, y, width, height};
+    DrawTexturePro(texture, source, destination, Vector2{0.0f, 0.0f}, 0.0f, tint);
+}
+
+// Draws text with a dark shadow so it stays readable on any background.
+static void drawShadowText(const char* text, int x, int y, int fontSize, Color color) {
+    DrawText(text, x + 2, y + 2, fontSize, Color{0, 0, 0, 200});
+    DrawText(text, x, y, fontSize, color);
+}
+
+// Draws the torch bar at 2x: the empty bar, then the lit part of the full bar cut to the fuel
+// ratio (0 to 1). The lit part turns red when the torch is low.
+static void drawTorchBar(const Textures& textures, int x, int y, float fuelRatio) {
+    const float scale = 2.0f;
+    const float barWidth = 231.0f;
+    const float barHeight = 32.0f;
+    drawPicture(textures.hudTorchbarEmpty, static_cast<float>(x), static_cast<float>(y),
+                barWidth * scale, barHeight * scale, WHITE);
+    if (fuelRatio <= 0.0f || textures.hudTorchbarFull.id == 0) {
+        return;
+    }
+    // the lit part starts after the flame cap (12 px) and stops 9 px before the right end
+    float litWidth = 12.0f + (barWidth - 21.0f) * fuelRatio;
+    Rectangle source = {0.0f, 0.0f, litWidth, barHeight};
+    Rectangle destination = {static_cast<float>(x), static_cast<float>(y), litWidth * scale,
+                             barHeight * scale};
+    Color tint = fuelRatio < 0.3f ? Color{255, 120, 100, 255} : WHITE;
+    DrawTexturePro(textures.hudTorchbarFull, source, destination, Vector2{0.0f, 0.0f}, 0.0f,
+                   tint);
+}
+
+// Draws an inventory slot with a picture and an optional count (-1 draws no count). A slot
+// that is not owned (grayed) is drawn dim.
+static void drawSlot(const Textures& textures, const Texture2D& icon, int x, int count,
+                     bool isOwned) {
+    drawPicture(textures.hudSlot, static_cast<float>(x), 16.0f, 56.0f, 56.0f, WHITE);
+    Color tint = isOwned ? WHITE : Color{255, 255, 255, 70};
+    drawPicture(icon, static_cast<float>(x + 10), 26.0f, 36.0f, 36.0f, tint);
+    if (count >= 0) {
+        drawShadowText(TextFormat("%d", count), x + 40, 54, 18, RAYWHITE);
+    }
+}
+
+// Draws the torch bar, the timer (campaign) or the name, turn and time left (multiplayer),
+// the inventory slots, the place and year, and the hero portrait in its frame.
 void drawHud(const GameState& game, const Player& viewer, const Textures& textures) {
     float fuelRatio = 0.0f;
     if (viewer.maxFuel > 0.0f) {
@@ -658,54 +789,59 @@ void drawHud(const GameState& game, const Player& viewer, const Textures& textur
     } else if (fuelRatio > 1.0f) {
         fuelRatio = 1.0f;
     }
-    Color fuelColor = ORANGE;
+    int screenWidth = GetScreenWidth();
+    DrawRectangle(0, 0, screenWidth, HUD_HEIGHT, Color{18, 14, 20, 255});
+    DrawRectangle(0, HUD_HEIGHT - 3, screenWidth, 3, Color{110, 78, 40, 255});
+
+    // The flame beats faster and bigger when the torch is low
+    float flameSize = 40.0f;
     if (fuelRatio < 0.3f) {
-        fuelColor = RED;
+        flameSize += 5.0f * sinf(static_cast<float>(GetTime()) * 10.0f);
     }
-    DrawRectangle(0, 0, GetScreenWidth(), HUD_HEIGHT, Color{18, 14, 20, 255});
-    DrawText(TextFormat("Fuel: %.1f / %.1f (%d%%)", viewer.fuel, viewer.maxFuel,
-                        static_cast<int>(fuelRatio * 100.0f)), 24, 14, 22, RAYWHITE);
-    DrawRectangle(24, 48, 300, 20, Color{50, 38, 34, 255});
-    DrawRectangle(24, 48, static_cast<int>(300.0f * fuelRatio), 20, fuelColor);
-    DrawRectangleLines(24, 48, 300, 20, GOLD);
+    drawPicture(textures.hudFlame, 28.0f - flameSize / 2.0f, 44.0f - flameSize / 2.0f,
+                flameSize, flameSize, WHITE);
+    drawTorchBar(textures, 56, 12, fuelRatio);
+    const char* fuelText = TextFormat("%d / %d", static_cast<int>(viewer.fuel + 0.5f),
+                                      static_cast<int>(viewer.maxFuel + 0.5f));
+    drawShadowText(fuelText, 56 + (462 - MeasureText(fuelText, 20)) / 2, 33, 20, RAYWHITE);
+
+    drawPicture(textures.hudTimer, 530.0f, 24.0f, 40.0f, 40.0f, WHITE);
+    const char* timeText = "00:00";
+    Color timeColor = RAYWHITE;
     if (game.isMultiplayer) {
-        DrawText(viewer.name.c_str(), 430, 14, 26, GOLD);
-        DrawText(TextFormat("Turn %d", game.turnNumber), 430, 48, 20, RAYWHITE);
         float secondsLeft = game.turnSecondsLeft > 0.0f ? game.turnSecondsLeft : 0.0f;
-        Color timeColor = secondsLeft < 3.0f ? RED : RAYWHITE;
-        DrawText(TextFormat("Time: %.1f s", secondsLeft), 540, 48, 20, timeColor);
-        DrawText(TextFormat("Map x %d   Trap x %d", viewer.maps, viewer.traps), 720, 14, 22,
-                 RAYWHITE);
-        if (viewer.hasKey) {
-            DrawText("Key", 960, 14, 22, GOLD);
+        timeText = TextFormat("%.1f s", secondsLeft);
+        if (secondsLeft < 3.0f) {
+            timeColor = RED;
         }
-        DrawText("Hold arrows: walk   1: map   2: trap   Enter: end turn", 720, 48, 20, RAYWHITE);
     } else {
-        int seconds = 0;
-        if (game.timeSeconds > 0.0f) {
-            seconds = static_cast<int>(game.timeSeconds);
-        }
-        DrawText(TextFormat("Time: %02d:%02d", seconds / 60, seconds % 60), 430, 22, 26,
-                 RAYWHITE);
-        if (game.level != nullptr) {
-            DrawText(TextFormat("%s - %d", game.level->place.c_str(), game.level->year),
-                     720, 14, 22, GOLD);
-        }
-        DrawText(TextFormat("Map x %d", viewer.maps), 430, 58, 20, RAYWHITE);
-        if (viewer.hasKey) {
-            DrawText("Key", 540, 58, 20, GOLD);
-        }
-        DrawText("Arrow keys: move   M: map   Esc: back", 720, 48, 20, RAYWHITE);
+        int seconds = game.timeSeconds > 0.0f ? static_cast<int>(game.timeSeconds) : 0;
+        timeText = TextFormat("%02d:%02d", seconds / 60, seconds % 60);
     }
-    if (viewer.character >= ASPARUH && viewer.character <= LEVSKI) {
-        const Texture2D& portrait = textures.heroes[viewer.character].portrait;
-        if (portrait.id != 0) {
-            Rectangle source = {0.0f, 0.0f, static_cast<float>(portrait.width),
-                                static_cast<float>(portrait.height)};
-            // Half size keeps the pixels sharp and fits inside the HUD
-            Rectangle destination = {static_cast<float>(GetScreenWidth() - 76), 12.0f, 64.0f,
-                                     64.0f};
-            DrawTexturePro(portrait, source, destination, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+    drawShadowText(timeText, 578, 32, 26, timeColor);
+
+    drawSlot(textures, textures.hudMap, 668, viewer.maps, viewer.maps > 0);
+    drawSlot(textures, textures.hudKey, 736, -1, viewer.hasKey);
+    if (game.isMultiplayer) {
+        drawSlot(textures, textures.hudTrap, 804, viewer.traps, viewer.traps > 0);
+    }
+
+    if (game.isMultiplayer) {
+        DrawText(viewer.name.c_str(), 884, 12, 24, GOLD);
+        DrawText(TextFormat("Turn %d", game.turnNumber), 884, 40, 20, RAYWHITE);
+        DrawText("Hold arrows  1: map  2: trap  Enter: done", 884, 66, 16, LIGHTGRAY);
+    } else {
+        if (game.level != nullptr) {
+            DrawText(TextFormat("%s - %d", game.level->place.c_str(), game.level->year), 884,
+                     12, 24, GOLD);
         }
+        DrawText("Arrows: move   M: map   Esc: pause", 884, 66, 16, LIGHTGRAY);
+    }
+
+    float frameX = static_cast<float>(screenWidth - 84);
+    drawPicture(textures.hudPortraitFrame, frameX, 10.0f, 70.0f, 65.0f, WHITE);
+    if (viewer.character >= ASPARUH && viewer.character <= LEVSKI) {
+        drawPicture(textures.heroes[viewer.character].portrait, frameX + 10.0f, 18.0f, 50.0f,
+                    50.0f, WHITE);
     }
 }
