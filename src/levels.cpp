@@ -18,8 +18,8 @@ const Level* getLevel(int id) {
         {2,
          "Varbitsa Pass",
          "First Bulgarian State",
-         "In 811 Khan Krum trapped the Byzantine army here. Legend says he turned the emperor's skull "
-         "into a silver cup.",
+         "In 811 Khan Krum trapped the Byzantine army here. "
+         "Legend says he turned the emperor's skull into a silver cup.",
          811,
          2,
          3.5f,
@@ -43,7 +43,8 @@ const Level* getLevel(int id) {
         {4,
          "Tarnovo",
          "Second Bulgarian State",
-         "In 1185 the brothers Asen and Peter rose up in Tarnovo and brought Bulgaria back to life.",
+         "In 1185 the brothers Asen and Peter rose up "
+         "in Tarnovo and brought Bulgaria back to life.",
          1185,
          1,
          3.75f,
@@ -55,8 +56,8 @@ const Level* getLevel(int id) {
         {5,
          "Cherven",
          "Second Bulgarian State",
-         "Cherven sat on a cliff above a river canyon. It had more medieval church inscriptions than "
-         "the capital Tarnovo.",
+         "Cherven sat on a cliff above a river canyon. It had more medieval church "
+         "inscriptions than the capital Tarnovo.",
          0,
          2,
          3.25f,
@@ -68,8 +69,8 @@ const Level* getLevel(int id) {
         {6,
          "Klokotnitsa",
          "Second Bulgarian State",
-         "At Klokotnitsa in 1230, Ivan Asen II rode into battle with the broken peace treaty on his "
-         "spear.",
+         "At Klokotnitsa in 1230, Ivan Asen II rode into battle "
+         "with the broken peace treaty on his spear.",
          1230,
          3,
          2.75f,
@@ -81,7 +82,8 @@ const Level* getLevel(int id) {
         {7,
          "Koprivshtitsa",
          "Road to Liberation",
-         "The first shot of the April Uprising was fired at a bridge in Koprivshtitsa on 20 April 1876.",
+         "The first shot of the April Uprising was "
+         "fired at a bridge in Koprivshtitsa on 20 April 1876.",
          1876,
          1,
          3.5f,
@@ -105,8 +107,8 @@ const Level* getLevel(int id) {
         {9,
          "Shipka",
          "Road to Liberation",
-         "In 1877 Bulgarian volunteers held Shipka against a far bigger army, then survived a frozen "
-         "winter on the peak.",
+         "In 1877 Bulgarian volunteers held Shipka against a far bigger army, "
+         "then survived a frozen winter on the peak.",
          1877,
          3,
          2.5f,
