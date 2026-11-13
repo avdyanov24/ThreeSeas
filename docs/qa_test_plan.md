@@ -159,3 +159,27 @@
 - **Input:** Check level 2 without a previous result; KRUM before era 1 is entered; arena 1 with 0 eras finished; then check each with Free Play.
 - **Expected result:** The first checks are locked; Free Play opens each one.
 - **Actual result:** Passed on 6 Nov 2026 (4 checks, all PASS)
+
+### T22: Place features in the maze
+
+- **Purpose:** Check that placeFeatures puts doors, water, traps, the key and items in legal places.
+- **Function tested:** `placeFeatures`
+- **Input:** Place features on a size 30 maze with a level that has doors and water, and on a size 20 maze with a level that has none.
+- **Expected result:** Start and exit stay clear, one key, doors only between two floors, water and level traps placed, no trap next to the start, nothing on the spawn corners, the exit stays reachable; the plain level has no key, door or water.
+- **Actual result:** Passed on 14 Nov 2026 (13 checks, all PASS)
+
+### T23: Multiplayer start
+
+- **Purpose:** Check the corner spawns, the random exit and the starting values of multiplayer players.
+- **Function tested:** `getSpawnCell`, `placeRandomExit`, `startLevel`, `createPlayers`
+- **Input:** Get the 4 spawn cells of a size 30 maze; place a random exit on 5 mazes; start a 4-player multiplayer game.
+- **Expected result:** Spawns are top-left, bottom-right, top-right, bottom-left; each maze has one exit at least size / 3 from every corner; every player starts in their own corner with 1 trap and size * 2 fuel (Asparuh 50 percent more).
+- **Actual result:** Passed on 14 Nov 2026 (10 checks, all PASS)
+
+### T24: Turn time and setup checks
+
+- **Purpose:** Check the multiplayer turn time and the player count and hero checks.
+- **Function tested:** `getTurnSeconds`, `isValidPlayerCount`, `isCharacterTaken`
+- **Input:** Turn time for size 20 and 50, in the first round, after a full round and after many rounds; player counts 1, 2, 4 and 5; hero lists with and without a repeated hero.
+- **Expected result:** 12 and 18 seconds at the start, 1 second less after a full round, never below half; only 2 to 4 players are valid; a chosen hero is taken, players after the count are ignored.
+- **Actual result:** Passed on 14 Nov 2026 (13 checks, all PASS)

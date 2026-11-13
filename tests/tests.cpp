@@ -1,4 +1,4 @@
-// QA test functions (T01-T20).
+// QA test functions (T01-T24).
 #include <iostream>
 #include <string>
 #include <cstdlib>
@@ -719,6 +719,216 @@ void testUnlocks(int& failures) {
 }
 
 // Prints the test summary and returns failure when any check fails.
+// Checks placeFeatures: start and exit stay clear, one key, doors only between floors, water,
+// level traps away from the start, nothing on the spawn corners, and the exit stays reachable.
+void testPlaceFeatures(int& failures) {
+    srand(22);
+    const Level* level = nullptr;
+    for (int id = 1; id <= LEVEL_COUNT; id++) {
+        const Level* candidate = getLevel(id);
+        if (candidate != nullptr && candidate->doors > 0 && candidate->hasWater) {
+            level = candidate;
+            break;
+        }
+    }
+    check("T22 a level with doors and water exists", level != nullptr, failures);
+    if (level == nullptr) {
+        return;
+    }
+
+    Maze maze = createMaze(30);
+    generatePaths(maze, 0, 0);
+    connectExit(maze);
+    placeFeatures(maze, *level);
+
+    int keys = 0;
+    int doors = 0;
+    int water = 0;
+    int levelTraps = 0;
+    int trapsNearStart = 0;
+    int badDoors = 0;
+    for (int row = 0; row < maze.size; row++) {
+        for (int col = 0; col < maze.size; col++) {
+            const Cell& cell = maze.cells[row][col];
+            if (cell.item == KEY) {
+                keys++;
+            }
+            if (cell.tile == WATER) {
+                water++;
+            }
+            if (cell.trapOwner == LEVEL_TRAP) {
+                levelTraps++;
+                if (row + col < 3) {
+                    trapsNearStart++;
+                }
+            }
+            if (cell.tile == DOOR) {
+                doors++;
+                bool isOpenVertically = row > 0 && row < maze.size - 1 &&
+                                        maze.cells[row - 1][col].tile != WALL &&
+                                        maze.cells[row - 1][col].tile != DOOR &&
+                                        maze.cells[row + 1][col].tile != WALL &&
+                                        maze.cells[row + 1][col].tile != DOOR;
+                bool isOpenHorizontally = col > 0 && col < maze.size - 1 &&
+                                          maze.cells[row][col - 1].tile != WALL &&
+                                          maze.cells[row][col - 1].tile != DOOR &&
+                                          maze.cells[row][col + 1].tile != WALL &&
+                                          maze.cells[row][col + 1].tile != DOOR;
+                if (!isOpenVertically && !isOpenHorizontally) {
+                    badDoors++;
+                }
+            }
+        }
+    }
+
+    int itemsOnCorners = 0;
+    for (int index = 0; index < 4; index++) {
+        int row = 0;
+        int col = 0;
+        getSpawnCell(maze, index, row, col);
+        if (maze.cells[row][col].item != NO_ITEM || maze.cells[row][col].trapOwner != NO_TRAP) {
+            itemsOnCorners++;
+        }
+    }
+
+    check("T22 start cell is floor with no item",
+          maze.cells[0][0].tile == FLOOR && maze.cells[0][0].item == NO_ITEM, failures);
+    check("T22 exit cell is still EXIT", maze.cells[29][29].tile == EXIT, failures);
+    check("T22 level with doors has exactly one key", keys == 1, failures);
+    check("T22 doors are placed and not more than the level asks",
+          doors > 0 && doors <= level->doors, failures);
+    check("T22 every door has floor on two opposite sides", badDoors == 0, failures);
+    check("T22 water is placed", water > 0, failures);
+    check("T22 level traps are placed", levelTraps > 0, failures);
+    check("T22 no trap next to the start", trapsNearStart == 0, failures);
+    check("T22 nothing lies on the spawn corners", itemsOnCorners == 0, failures);
+    check("T22 exit is reachable after placing features", canReachExit(maze), failures);
+    destroyMaze(maze);
+
+    const Level* plainLevel = getLevel(1);
+    Maze plain = createMaze(20);
+    generatePaths(plain, 0, 0);
+    connectExit(plain);
+    placeFeatures(plain, *plainLevel);
+    int plainKeys = 0;
+    int plainDoors = 0;
+    int plainWater = 0;
+    for (int row = 0; row < plain.size; row++) {
+        for (int col = 0; col < plain.size; col++) {
+            if (plain.cells[row][col].item == KEY) {
+                plainKeys++;
+            }
+            if (plain.cells[row][col].tile == DOOR) {
+                plainDoors++;
+            }
+            if (plain.cells[row][col].tile == WATER) {
+                plainWater++;
+            }
+        }
+    }
+    check("T22 level without doors has no key and no door", plainKeys == 0 && plainDoors == 0,
+          failures);
+    check("T22 level without water has no water", plainWater == 0, failures);
+    destroyMaze(plain);
+}
+
+// Checks the multiplayer start: one corner per player, a random exit far from every corner,
+// and the starting fuel and traps of the players.
+void testMultiplayerStart(int& failures) {
+    srand(23);
+    Maze maze = createMaze(30);
+    int cornerRows[4] = {};
+    int cornerCols[4] = {};
+    for (int index = 0; index < 4; index++) {
+        getSpawnCell(maze, index, cornerRows[index], cornerCols[index]);
+    }
+    check("T23 player 0 starts top-left", cornerRows[0] == 0 && cornerCols[0] == 0, failures);
+    check("T23 player 1 starts bottom-right",
+          cornerRows[1] == 28 && cornerCols[1] == 28, failures);
+    check("T23 player 2 starts top-right", cornerRows[2] == 0 && cornerCols[2] == 28, failures);
+    check("T23 player 3 starts bottom-left", cornerRows[3] == 28 && cornerCols[3] == 0, failures);
+    destroyMaze(maze);
+
+    bool isExitAlwaysSingle = true;
+    bool isExitAlwaysFar = true;
+    for (int attempt = 0; attempt < 5; attempt++) {
+        Maze arena = createMaze(30);
+        generatePaths(arena, 0, 0);
+        placeRandomExit(arena);
+        int exits = 0;
+        for (int row = 0; row < arena.size; row++) {
+            for (int col = 0; col < arena.size; col++) {
+                if (arena.cells[row][col].tile != EXIT) {
+                    continue;
+                }
+                exits++;
+                for (int index = 0; index < 4; index++) {
+                    int distance = std::abs(row - cornerRows[index]) +
+                                   std::abs(col - cornerCols[index]);
+                    if (distance < arena.size / 3) {
+                        isExitAlwaysFar = false;
+                    }
+                }
+            }
+        }
+        if (exits != 1) {
+            isExitAlwaysSingle = false;
+        }
+        destroyMaze(arena);
+    }
+    check("T23 there is exactly one exit", isExitAlwaysSingle, failures);
+    check("T23 the exit is at least size / 3 from every corner", isExitAlwaysFar, failures);
+
+    GameState game = createEmptyGame();
+    startLevel(game, *getLevel(1), 30, true);
+    std::string names[4] = {"Ana", "Boris", "Cvetan", "Dimo"};
+    CharacterId characters[4] = {ASPARUH, KRUM, BORIS, SIMEON};
+    createPlayers(game, 4, names, characters);
+    bool isEveryoneInOwnCorner = game.playerCount == 4;
+    bool hasEveryoneOneTrap = true;
+    for (int index = 0; index < game.playerCount; index++) {
+        if (game.players[index].row != cornerRows[index] ||
+            game.players[index].col != cornerCols[index]) {
+            isEveryoneInOwnCorner = false;
+        }
+        if (game.players[index].traps != 1) {
+            hasEveryoneOneTrap = false;
+        }
+    }
+    check("T23 every player starts in their own corner", isEveryoneInOwnCorner, failures);
+    check("T23 every multiplayer player starts with one trap", hasEveryoneOneTrap, failures);
+    check("T23 fuel is size * 2", game.players[1].maxFuel == 60.0f, failures);
+    check("T23 Asparuh gets 50 percent more fuel", game.players[0].maxFuel == 90.0f, failures);
+    destroyGame(game);
+}
+
+// Checks the time of a multiplayer turn and the player count and hero checks.
+void testTurnTimeAndSetup(int& failures) {
+    check("T24 size 20 gives 12 seconds", getTurnSeconds(1, 2, 20) == 12.0f, failures);
+    check("T24 size 50 gives 18 seconds", getTurnSeconds(1, 2, 50) == 18.0f, failures);
+    check("T24 a full round takes one second away", getTurnSeconds(3, 2, 20) == 11.0f, failures);
+    check("T24 still the start time inside the first round", getTurnSeconds(2, 2, 20) == 12.0f,
+          failures);
+    check("T24 time never drops below half", getTurnSeconds(100, 2, 20) == 6.0f, failures);
+
+    check("T24 1 player is not allowed", !isValidPlayerCount(1), failures);
+    check("T24 2 players are allowed", isValidPlayerCount(2), failures);
+    check("T24 4 players are allowed", isValidPlayerCount(4), failures);
+    check("T24 5 players are not allowed", !isValidPlayerCount(5), failures);
+
+    Player players[3] = {};
+    players[0].character = KRUM;
+    players[1].character = BORIS;
+    players[2].character = LEVSKI;
+    check("T24 a chosen hero is taken", isCharacterTaken(players, 2, BORIS), failures);
+    check("T24 a free hero is not taken", !isCharacterTaken(players, 2, SIMEON), failures);
+    check("T24 players after the count are ignored", !isCharacterTaken(players, 2, LEVSKI),
+          failures);
+    check("T24 nobody has a hero when the count is 0", !isCharacterTaken(players, 0, KRUM),
+          failures);
+}
+
+
 int main() {
 	int failures = 0;
     testSizeValidation(failures);
@@ -744,6 +954,9 @@ int main() {
     testSaveAndLoadResults(failures);
     testDestroyMaze(failures);
     testUnlocks(failures);
+    testPlaceFeatures(failures);
+    testMultiplayerStart(failures);
+    testTurnTimeAndSetup(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";
