@@ -1,4 +1,4 @@
-// QA test functions (T01-T23).
+// QA test functions (T01-T24).
 #include <iostream>
 #include <string>
 #include <cstdlib>
@@ -902,6 +902,33 @@ void testMultiplayerStart(int& failures) {
     destroyGame(game);
 }
 
+// Checks the time of a multiplayer turn and the player count and hero checks.
+void testTurnTimeAndSetup(int& failures) {
+    check("T24 size 20 gives 12 seconds", getTurnSeconds(1, 2, 20) == 12.0f, failures);
+    check("T24 size 50 gives 18 seconds", getTurnSeconds(1, 2, 50) == 18.0f, failures);
+    check("T24 a full round takes one second away", getTurnSeconds(3, 2, 20) == 11.0f, failures);
+    check("T24 still the start time inside the first round", getTurnSeconds(2, 2, 20) == 12.0f,
+          failures);
+    check("T24 time never drops below half", getTurnSeconds(100, 2, 20) == 6.0f, failures);
+
+    check("T24 1 player is not allowed", !isValidPlayerCount(1), failures);
+    check("T24 2 players are allowed", isValidPlayerCount(2), failures);
+    check("T24 4 players are allowed", isValidPlayerCount(4), failures);
+    check("T24 5 players are not allowed", !isValidPlayerCount(5), failures);
+
+    Player players[3] = {};
+    players[0].character = KRUM;
+    players[1].character = BORIS;
+    players[2].character = LEVSKI;
+    check("T24 a chosen hero is taken", isCharacterTaken(players, 2, BORIS), failures);
+    check("T24 a free hero is not taken", !isCharacterTaken(players, 2, SIMEON), failures);
+    check("T24 players after the count are ignored", !isCharacterTaken(players, 2, LEVSKI),
+          failures);
+    check("T24 nobody has a hero when the count is 0", !isCharacterTaken(players, 0, KRUM),
+          failures);
+}
+
+
 int main() {
 	int failures = 0;
     testSizeValidation(failures);
@@ -929,6 +956,7 @@ int main() {
     testUnlocks(failures);
     testPlaceFeatures(failures);
     testMultiplayerStart(failures);
+    testTurnTimeAndSetup(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";

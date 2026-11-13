@@ -175,3 +175,11 @@
 - **Input:** Get the 4 spawn cells of a size 30 maze; place a random exit on 5 mazes; start a 4-player multiplayer game.
 - **Expected result:** Spawns are top-left, bottom-right, top-right, bottom-left; each maze has one exit at least size / 3 from every corner; every player starts in their own corner with 1 trap and size * 2 fuel (Asparuh 50 percent more).
 - **Actual result:** Passed on 14 Nov 2026 (10 checks, all PASS)
+
+### T24: Turn time and setup checks
+
+- **Purpose:** Check the multiplayer turn time and the player count and hero checks.
+- **Function tested:** `getTurnSeconds`, `isValidPlayerCount`, `isCharacterTaken`
+- **Input:** Turn time for size 20 and 50, in the first round, after a full round and after many rounds; player counts 1, 2, 4 and 5; hero lists with and without a repeated hero.
+- **Expected result:** 12 and 18 seconds at the start, 1 second less after a full round, never below half; only 2 to 4 players are valid; a chosen hero is taken, players after the count are ignored.
+- **Actual result:** Passed on 14 Nov 2026 (13 checks, all PASS)
