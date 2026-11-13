@@ -18,7 +18,13 @@ target_include_directories(logic PUBLIC src)
 add_executable(crossroads src/main.cpp src/render.cpp
                           src/screens.cpp src/audio.cpp)
 target_link_libraries(crossroads logic raylib)
-target_compile_definitions(crossroads PRIVATE ART_DIR="${CMAKE_SOURCE_DIR}/art")
+target_compile_definitions(crossroads PRIVATE
+    ART_DIR="${CMAKE_SOURCE_DIR}/art"
+    SOUND_DIR="${CMAKE_BINARY_DIR}/assets/sounds/")
+add_custom_command(TARGET crossroads POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/assets/sounds"
+            "${CMAKE_BINARY_DIR}/assets/sounds")
 
 enable_testing()
 add_executable(tests tests/tests.cpp)
