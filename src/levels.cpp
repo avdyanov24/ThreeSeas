@@ -188,5 +188,5 @@ bool isArenaUnlocked(int arenaId, int erasFinished, bool isFreePlay) {
     if (isFreePlay) {
         return true;
     }
-    return erasFinished >= arenaId;
+    return erasFinished >= arenaId - 1;
 }

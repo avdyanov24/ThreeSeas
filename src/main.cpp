@@ -75,7 +75,6 @@ static void startMultiplayerGame(GameState& game, const UiState& ui, Level& aren
         characters[i] = ui.characters[i];
     }
     createPlayers(game, ui.playerCount, names, characters);
-    game.stepsLeft = 3;
     game.turnNumber = 1;
     game.turnSecondsLeft = getTurnSeconds(1, game.playerCount, game.maze.size);
 }

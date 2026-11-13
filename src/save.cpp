@@ -1,5 +1,6 @@
 #include "save.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -45,7 +46,7 @@ int loadResults(Result results[], int maxCount) {
     return resultCount;
 }
 
-// Saves a result while keeping the fastest time for that player and level.
+// Saves a result while keeping the fastest time and the most stars for that player and level.
 bool saveResult(const Result& result) {
     Result results[MAX_RECORDS];
     int resultCount = loadResults(results, MAX_RECORDS);
@@ -54,7 +55,9 @@ bool saveResult(const Result& result) {
     for (int i = 0; i < resultCount; ++i) {
         if (results[i].name == result.name && results[i].levelId == result.levelId) {
             if (result.bestSeconds < results[i].bestSeconds) {
+                int bestStars = std::max(result.stars, results[i].stars);
                 results[i] = result;
+                results[i].stars = bestStars;
             }
             hasMatchingResult = true;
             break;

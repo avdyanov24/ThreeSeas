@@ -13,12 +13,12 @@
 
 // Prints a test result and increments failures when the test did not pass; returns nothing.
 void check(const std::string& testName, bool passed, int& failures) {
-	if (passed) {
-		std::cout << "PASS " << testName << '\n';
-	} else {
-		std::cout << "FAIL " << testName << '\n';
-		failures++;
-	}
+    if (passed) {
+        std::cout << "PASS " << testName << '\n';
+    } else {
+        std::cout << "FAIL " << testName << '\n';
+        failures++;
+    }
 }
 
 // Returns true if the maze exit can be reached from the start; returns false otherwise.
@@ -201,7 +201,8 @@ void testOutOfBoundsMovement(int& failures) {
 
     player.row = 2;
     player.col = 0;
-    check("T07 left edge cell is floor", maze.cells[player.row][player.col].tile == FLOOR, failures);
+    check("T07 left edge cell is floor",
+          maze.cells[player.row][player.col].tile == FLOOR, failures);
     check("T07 moving left from left edge is rejected", !tryMove(maze, player, LEFT), failures);
     check("T07 left edge position is unchanged", player.row == 2 && player.col == 0, failures);
 
@@ -254,7 +255,8 @@ void testLevelData(int& failures) {
         {2,
          "Varbitsa Pass",
          "First Bulgarian State",
-         "In 811 Khan Krum trapped the Byzantine army here. Legend says he turned the emperor's skull "
+         "In 811 Khan Krum trapped the Byzantine army here. Legend says he turned the emperor's "
+         "skull "
          "into a silver cup.",
          811,
          2,
@@ -279,7 +281,8 @@ void testLevelData(int& failures) {
         {4,
          "Tarnovo",
          "Second Bulgarian State",
-         "In 1185 the brothers Asen and Peter rose up in Tarnovo and brought Bulgaria back to life.",
+         "In 1185 the brothers Asen and Peter rose up in Tarnovo and brought Bulgaria back to "
+         "life.",
          1185,
          1,
          3.75f,
@@ -291,7 +294,8 @@ void testLevelData(int& failures) {
         {5,
          "Cherven",
          "Second Bulgarian State",
-         "Cherven sat on a cliff above a river canyon. It had more medieval church inscriptions than "
+         "Cherven sat on a cliff above a river canyon. It had more medieval church inscriptions "
+         "than "
          "the capital Tarnovo.",
          0,
          2,
@@ -304,7 +308,8 @@ void testLevelData(int& failures) {
         {6,
          "Klokotnitsa",
          "Second Bulgarian State",
-         "At Klokotnitsa in 1230, Ivan Asen II rode into battle with the broken peace treaty on his "
+         "At Klokotnitsa in 1230, Ivan Asen II rode into battle with the broken peace treaty on "
+         "his "
          "spear.",
          1230,
          3,
@@ -317,7 +322,8 @@ void testLevelData(int& failures) {
         {7,
          "Koprivshtitsa",
          "Road to Liberation",
-         "The first shot of the April Uprising was fired at a bridge in Koprivshtitsa on 20 April 1876.",
+         "The first shot of the April Uprising was fired at a bridge in Koprivshtitsa on 20 April "
+         "1876.",
          1876,
          1,
          3.5f,
@@ -341,7 +347,8 @@ void testLevelData(int& failures) {
         {9,
          "Shipka",
          "Road to Liberation",
-         "In 1877 Bulgarian volunteers held Shipka against a far bigger army, then survived a frozen "
+         "In 1877 Bulgarian volunteers held Shipka against a far bigger army, then survived a "
+         "frozen "
          "winter on the peak.",
          1877,
          3,
@@ -579,13 +586,26 @@ void testTrapEffects(int& failures) {
     destroyMaze(game.maze);
 }
 
-// Checks multiplayer step cost for a water cell and a floor cell.
-void testWaterStepCost(int& failures) {
-    Maze maze = createMovementTestMaze();
-    maze.cells[2][2].tile = WATER;
-    check("T14 water costs two steps", getStepCost(maze, 2, 2) == 2, failures);
-    check("T14 floor costs one step", getStepCost(maze, 1, 1) == 1, failures);
-    destroyMaze(maze);
+// Checks that walking out of a water cell takes twice as long as out of a floor cell.
+void testWaterSlowsWalking(int& failures) {
+    GameState game = createEmptyGame();
+    startLevel(game, *getLevel(1), 10, false);
+    std::string names[1] = {"Player"};
+    CharacterId characters[1] = {KRUM};
+    createPlayers(game, 1, names, characters);
+    Player& player = game.players[0];
+    game.maze.cells[0][1].tile = WATER;
+    game.maze.cells[0][2].tile = FLOOR;
+    game.maze.cells[0][3].tile = FLOOR;
+    player.row = 0;
+    player.col = 1;
+    updateCampaign(game, RIGHT, 0.12f);
+    check("T14 leaving water takes longer than 0.12 s", player.col == 1, failures);
+    updateCampaign(game, RIGHT, 0.12f);
+    check("T14 leaving water works after 0.24 s", player.col == 2, failures);
+    updateCampaign(game, RIGHT, 0.12f);
+    check("T14 leaving floor takes 0.12 s", player.col == 3, failures);
+    destroyGame(game);
 }
 
 // Checks that nextTurn skips players who are out or have a skipped turn.
@@ -603,10 +623,8 @@ void testNextPlayer(int& failures) {
 
     game.currentPlayer = 2;
     players[0].isOut = true;
-    game.stepsLeft = 0;
     nextTurn(game);
     check("T16 next active player wraps past player 0", game.currentPlayer == 1, failures);
-    check("T16 next turn resets steps left", game.stepsLeft == 3, failures);
     check("T16 ending the turn burns one fuel", players[2].fuel == 49.0f, failures);
 
     players[0].isOut = true;
@@ -691,6 +709,10 @@ void testSaveAndLoadResults(int& failures) {
     count = loadResults(results, MAX_RECORDS);
     check("T18 slower result keeps one record", count == 1, failures);
     check("T18 slower result preserves the best time", results[0].bestSeconds == 84.5f, failures);
+    check("T18 faster result saves successfully", saveResult({"Ivan", 3, 70.0f, 1}), failures);
+    count = loadResults(results, MAX_RECORDS);
+    check("T18 faster result replaces the best time", results[0].bestSeconds == 70.0f, failures);
+    check("T18 faster result never lowers the stars", results[0].stars == 2, failures);
     std::remove("save/results.txt");
 }
 
@@ -708,17 +730,19 @@ void testUnlocks(int& failures) {
           !isLevelUnlocked(2, false, false), failures);
     check("T20 KRUM is locked before era 1 is entered",
           !isCharacterUnlocked(KRUM, 0, false), failures);
-    check("T20 arena 1 is locked before an era is finished",
-          !isArenaUnlocked(1, 0, false), failures);
+    check("T20 arena 1 is open from the start", isArenaUnlocked(1, 0, false), failures);
+    check("T20 arena 2 is locked before an era is finished",
+          !isArenaUnlocked(2, 0, false), failures);
+    check("T20 arena 3 is locked after one era", !isArenaUnlocked(3, 1, false), failures);
     check("T20 Free Play unlocks level 2", isLevelUnlocked(2, false, true), failures);
     check("T20 Free Play unlocks KRUM", isCharacterUnlocked(KRUM, 0, true), failures);
     check("T20 Free Play unlocks arena 1", isArenaUnlocked(1, 0, true), failures);
     check("T20 prior result unlocks level 2", isLevelUnlocked(2, true, false), failures);
     check("T20 entering era 1 unlocks KRUM", isCharacterUnlocked(KRUM, 1, false), failures);
-    check("T20 finishing era 1 unlocks arena 1", isArenaUnlocked(1, 1, false), failures);
+    check("T20 finishing era 1 unlocks arena 2", isArenaUnlocked(2, 1, false), failures);
+    check("T20 finishing era 2 unlocks arena 3", isArenaUnlocked(3, 2, false), failures);
 }
 
-// Prints the test summary and returns failure when any check fails.
 // Checks placeFeatures: start and exit stay clear, one key, doors only between floors, water,
 // level traps away from the start, nothing on the spawn corners, and the exit stays reachable.
 void testPlaceFeatures(int& failures) {
@@ -928,9 +952,9 @@ void testTurnTimeAndSetup(int& failures) {
           failures);
 }
 
-
+// Runs every test and returns 0 only if every check passed.
 int main() {
-	int failures = 0;
+    int failures = 0;
     testSizeValidation(failures);
     testWholeNumberParsing(failures);
     testNameValidation(failures);
@@ -948,7 +972,7 @@ int main() {
     testTorchOut(failures);
     testCampaignStars(failures);
     testTrapEffects(failures);
-    testWaterStepCost(failures);
+    testWaterSlowsWalking(failures);
     testNextPlayer(failures);
     testMultiplayerWinner(failures);
     testSaveAndLoadResults(failures);
@@ -958,15 +982,15 @@ int main() {
     testMultiplayerStart(failures);
     testTurnTimeAndSetup(failures);
 
-	if (failures == 0) {
-		std::cout << "All tests passed\n";
-	} else {
-		std::cout << failures << " checks failed\n";
-	}
+    if (failures == 0) {
+        std::cout << "All tests passed\n";
+    } else {
+        std::cout << failures << " checks failed\n";
+    }
 
-	if (failures == 0) {
-		return 0;
-	}
+    if (failures == 0) {
+        return 0;
+    }
 
-	return 1;
+    return 1;
 }

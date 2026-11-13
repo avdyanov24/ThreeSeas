@@ -39,10 +39,6 @@ bool canEnter(const Maze& maze, const Player& player, int row, int col);
 // pickUpItem and updateSeen.
 bool tryMove(Maze& maze, Player& player, Direction direction);
 
-// Multiplayer: returns how many of the 3 steps entering (row, col) costs:
-// 2 for WATER, otherwise 1.
-int getStepCost(const Maze& maze, int row, int col);
-
 // One frame of the campaign. heldDirection is -1 when no arrow key is held,
 // otherwise a Direction value. Adds deltaTime to the timer, moves the player one
 // cell every 0.12 s (0.24 s on water), handles being stuck, calls pickUpItem and
@@ -94,7 +90,6 @@ int calculateStars(int size, float seconds);
 // Multiplayer: ends the current turn. Burns the fuel of the current player (1,
 // or 2 when the level is cold), then picks the next player who is not out,
 // skipping and wrapping around. A player with turnsToSkip loses that turn.
-// Resets stepsLeft to 3.
 void nextTurn(GameState& game);
 
 // Multiplayer: returns how many seconds a player gets for the turn. A bigger maze gives

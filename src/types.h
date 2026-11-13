@@ -119,7 +119,6 @@ struct GameState {
     const Level* level;
     bool isMultiplayer;
     float timeSeconds;
-    int stepsLeft;  // multiplayer: steps left in this turn (3 at the start)
     float turnSecondsLeft;  // multiplayer: seconds left in this turn
     int turnNumber;  // multiplayer: 1 for the first turn, counts up after every turn
     int winner;     // player index, NO_WINNER or DRAW
