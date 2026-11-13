@@ -16,6 +16,7 @@ const int ARENA_COUNT = 3;
 const int CHARACTER_COUNT = 6;
 const int MAX_RECORDS = 500;  // most lines read from a save file
 const int LEADERBOARD_WINS = 5;  // players shown in the most-wins list
+const int PINS_PER_ERA = 3;      // maze pins on the campaign map of one era
 
 const int NO_TRAP = -1;     // Cell::trapOwner: no trap on this cell
 const int LEVEL_TRAP = -2;  // Cell::trapOwner: trap placed by the level (campaign)
@@ -157,6 +158,10 @@ struct UiState {
     bool isExitRequested;
     bool isMultiplayerGame;    // true when the game on screen is a multiplayer game
     int selectedEra;           // 1 to 3
+    int shownEra;              // campaign map: era the tabs show, 0 before the first visit
+    int previousEra;           // campaign map: era shown before the last era switch
+    double eraSwitchTime;      // campaign map: GetTime() when the era last switched
+    float pinRingAlpha[PINS_PER_ERA];  // campaign map: each pin's ring, 0 hidden to 1 shown
     int selectedLevel;         // 1 to 9
     int chosenSize;            // maze size chosen on the level intro / MP setup
     int arenaId;               // multiplayer arena
