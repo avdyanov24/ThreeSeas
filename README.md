@@ -8,16 +8,20 @@ A dark dungeon maze game set in Bulgarian history. Every maze is a real historic
 
 ## Screenshots
 
-*Concept mockups made from the finished art assets, not yet captured from the running game.*
-
 | | |
 |---|---|
-| ![Pliska](docs/screenshots/05_gameplay_pliska.png) | ![Cherven](docs/screenshots/06_gameplay_cherven_water.png) |
-| Pliska: torchlight, memory and fog | Cherven: water slows you down |
-| ![Shipka](docs/screenshots/07_gameplay_shipka_snow.png) | ![Heroes](docs/screenshots/12_heroes.png) |
-| Shipka: snow and cold | The six heroes |
-| ![Campaign map](docs/screenshots/03_campaign_map.png) | ![Main menu](docs/screenshots/02_main_menu.png) |
-| Campaign map | Main menu |
+| ![Main menu](docs/screens/menu.png) | ![Campaign map](docs/screens/campaign_map.png) |
+| Main menu | Campaign map with the three eras |
+| ![Level intro](docs/screens/level_intro.png) | ![Playing](docs/screens/playing.png) |
+| Level intro with a fun fact | Pliska: torchlight, memory and fog |
+| ![Pause](docs/screens/pause.png) | ![Multiplayer setup](docs/screens/mp_setup.png) |
+| Pause menu | Multiplayer setup |
+| ![Pass the torch](docs/screens/mp_pass.png) | ![Multiplayer playing](docs/screens/mp_playing.png) |
+| Pass the torch to the next player | Multiplayer: another hero in your torchlight |
+| ![Leaderboard](docs/screens/leaderboard.png) | ![How to play](docs/screens/how_to_play.png) |
+| Leaderboard | How to play |
+| ![Settings](docs/screens/settings.png) | |
+| Settings | |
 
 ## How to play
 
