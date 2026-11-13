@@ -257,6 +257,40 @@ void drawMovingBackground(const Texture2D& texture, Color fallbackColor) {
     DrawTexturePro(texture, source, destination, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
 }
 
+// Asks main to play a sound at the end of this frame. Returns nothing.
+void requestSound(UiState& ui, SoundId id) {
+    ui.soundRequests[id] = true;
+}
+
+// Compares a player before and after one frame of play and asks for the matching sounds:
+// footstep for a new cell (and the lock for a door cell), pickup for a new item or more
+// fuel, the trap snap, the low torch warning when the fuel drops below 30%, and torch out.
+void requestPlayerSounds(const GameState& game, int playerIndex, const Player& before,
+                         UiState& ui) {
+    const Player& after = game.players[playerIndex];
+    if (after.row != before.row || after.col != before.col) {
+        requestSound(ui, SOUND_FOOTSTEP);
+        if (game.maze.cells[after.row][after.col].tile == DOOR) {
+            requestSound(ui, SOUND_DOOR_UNLOCK);
+        }
+    }
+    if (after.fuel > before.fuel || after.maps > before.maps || after.traps > before.traps ||
+        (after.hasKey && !before.hasKey)) {
+        requestSound(ui, SOUND_PICKUP);
+    }
+    if ((after.stuckSeconds > 0.0f && before.stuckSeconds <= 0.0f) ||
+        after.turnsToSkip > before.turnsToSkip) {
+        requestSound(ui, SOUND_TRAP_SNAP);
+    }
+    if (after.maxFuel > 0.0f && !after.isOut && before.fuel >= 0.3f * before.maxFuel &&
+        after.fuel < 0.3f * after.maxFuel) {
+        requestSound(ui, SOUND_LOW_TORCH);
+    }
+    if (after.isOut && !before.isOut) {
+        requestSound(ui, SOUND_TORCH_OUT);
+    }
+}
+
 // Returns the next menu index, wrapping around in the requested direction.
 int moveSelection(int selectedItem, int direction, int itemCount) {
     if (selectedItem < 0) {
@@ -512,16 +546,19 @@ Screen updateMultiplayerSetup(UiState& ui) {
     bool isOverBack = isPointerOverButton(pointer, BACK_BUTTON_X, BACK_BUTTON_Y,
                                           BUTTON_WIDTH, BUTTON_HEIGHT);
     if (IsKeyPressed(KEY_ESCAPE) || (isMouseClick && isOverBack)) {
+        requestSound(ui, SOUND_CLICK);
         ui.selectedItem = 0;
         return MAIN_MENU;
     }
 
     int rowCount = 3 + ui.playerCount;
     if (IsKeyPressed(KEY_UP)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         ui.selectedItem = moveSelection(ui.selectedItem, -1, rowCount);
     }
     if (IsKeyPressed(KEY_DOWN)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         ui.selectedItem = moveSelection(ui.selectedItem, 1, rowCount);
     }
@@ -533,6 +570,7 @@ Screen updateMultiplayerSetup(UiState& ui) {
         direction = 1;
     }
     if (direction != 0) {
+        requestSound(ui, SOUND_CLICK);
         if (ui.selectedItem == 0) {
             ui.arenaId = (ui.arenaId - 1 + direction + ARENA_COUNT) % ARENA_COUNT + 1;
         } else if (ui.selectedItem == 1) {
@@ -575,6 +613,7 @@ Screen updateMultiplayerSetup(UiState& ui) {
     }
 
     if (IsKeyPressed(KEY_ENTER)) {
+        requestSound(ui, SOUND_CLICK);
         ui.errorMessage = getSetupError(ui);
         if (ui.errorMessage.empty()) {
             int size = 0;
@@ -673,13 +712,16 @@ Screen updateLevelIntro(UiState& ui) {
     }
 
     if (IsKeyPressed(KEY_LEFT)) {
+        requestSound(ui, SOUND_CLICK);
         ui.characters[0] = getNextUnlockedHero(ui, -1);
     }
     if (IsKeyPressed(KEY_RIGHT)) {
+        requestSound(ui, SOUND_CLICK);
         ui.characters[0] = getNextUnlockedHero(ui, 1);
     }
 
     if (IsKeyPressed(KEY_ENTER)) {
+        requestSound(ui, SOUND_CLICK);
         int size = 0;
         if (parseWholeNumber(ui.typedText, size) && isValidSize(size, false)) {
             ui.chosenSize = size;
@@ -692,6 +734,7 @@ Screen updateLevelIntro(UiState& ui) {
     }
 
     if (IsKeyPressed(KEY_ESCAPE) || (isMouseClick && ui.selectedItem == 0)) {
+        requestSound(ui, SOUND_CLICK);
         ui.selectedItem = 0;
         return CAMPAIGN_MAP;
     }
@@ -788,16 +831,19 @@ Screen updateMainMenu(UiState& ui) {
     }
 
     if (IsKeyPressed(KEY_UP)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         ui.selectedItem = moveSelection(ui.selectedItem, -1, MENU_ITEM_COUNT);
         return MAIN_MENU;
     }
     if (IsKeyPressed(KEY_DOWN)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         ui.selectedItem = moveSelection(ui.selectedItem, 1, MENU_ITEM_COUNT);
         return MAIN_MENU;
     }
     if (IsKeyPressed(KEY_ENTER)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         if (ui.selectedItem < 0) {
             ui.selectedItem = 0;
@@ -805,6 +851,7 @@ Screen updateMainMenu(UiState& ui) {
         return selectMenuItem(ui.selectedItem, ui);
     }
     if (isMouseClick && ui.selectedItem >= 0) {
+        requestSound(ui, SOUND_CLICK);
         return selectMenuItem(ui.selectedItem, ui);
     }
     if (IsKeyPressed(KEY_ESCAPE)) {
@@ -838,6 +885,7 @@ Screen updateCampaignMap(UiState& ui) {
         for (int era = 1; era <= ERA_COUNT; era++) {
             float slot = static_cast<float>(getEraSlot(era, ui.selectedEra));
             if (CheckCollisionPointRec(pointer, getEraTabRect(slot))) {
+                requestSound(ui, SOUND_CLICK);
                 ui.selectedEra = era;
                 ui.selectedItem = 0;
                 return CAMPAIGN_MAP;
@@ -845,40 +893,51 @@ Screen updateCampaignMap(UiState& ui) {
         }
         if (isPointerOverButton(pointer, BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH,
                                 BUTTON_HEIGHT)) {
+            requestSound(ui, SOUND_CLICK);
             ui.selectedItem = 0;
             return MAIN_MENU;
         }
-        return openSelectedPin(ui);
+        Screen next = openSelectedPin(ui);
+        if (next != CAMPAIGN_MAP) {
+            requestSound(ui, SOUND_CLICK);
+        }
+        return next;
     }
 
     if (IsKeyPressed(KEY_LEFT)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         ui.selectedItem = moveSelection(ui.selectedItem, -1, PINS_PER_ERA);
         return CAMPAIGN_MAP;
     }
     if (IsKeyPressed(KEY_RIGHT)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         ui.selectedItem = moveSelection(ui.selectedItem, 1, PINS_PER_ERA);
         return CAMPAIGN_MAP;
     }
     // The eras go round in a circle: after Era III comes Era I again
     if (IsKeyPressed(KEY_UP)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         ui.selectedEra = ui.selectedEra % ERA_COUNT + 1;
         ui.selectedItem = 0;
         return CAMPAIGN_MAP;
     }
     if (IsKeyPressed(KEY_DOWN)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         ui.selectedEra = (ui.selectedEra + ERA_COUNT - 2) % ERA_COUNT + 1;
         ui.selectedItem = 0;
         return CAMPAIGN_MAP;
     }
     if (IsKeyPressed(KEY_ENTER)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         return openSelectedPin(ui);
     }
     if (IsKeyPressed(KEY_ESCAPE)) {
+        requestSound(ui, SOUND_CLICK);
         ui.selectedItem = 0;
         return MAIN_MENU;
     }
@@ -902,26 +961,31 @@ Screen updateBackScreen(Screen screen, UiState& ui) {
                 : -1;
     }
     if (IsKeyPressed(KEY_ESCAPE)) {
+        requestSound(ui, SOUND_CLICK);
         ui.selectedItem = 0;
         return MAIN_MENU;
     }
     if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_DOWN)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         ui.selectedItem = 0;
         return screen;
     }
     if (IsKeyPressed(KEY_ENTER)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         return MAIN_MENU;
     }
     if (isMouseClick && ui.selectedItem == 0) {
+        requestSound(ui, SOUND_CLICK);
         return MAIN_MENU;
     }
     return screen;
 }
 
-// Prepares the name entry screen with the last accepted name. Returns NAME_ENTRY.
+// Prepares the name entry screen with the last accepted name and clicks. Returns NAME_ENTRY.
 Screen openNameEntry(UiState& ui) {
+    requestSound(ui, SOUND_CLICK);
     ui.typedText = ui.playerName;
     ui.errorMessage = "";
     ui.selectedItem = -1;
@@ -956,6 +1020,7 @@ Screen updateNameEntry(UiState& ui) {
     }
 
     if (IsKeyPressed(KEY_ENTER)) {
+        requestSound(ui, SOUND_CLICK);
         if (isValidName(ui.typedText)) {
             ui.playerName = ui.typedText;
             ui.errorMessage = "";
@@ -967,6 +1032,7 @@ Screen updateNameEntry(UiState& ui) {
     }
 
     if (IsKeyPressed(KEY_ESCAPE) || (isMouseClick && ui.selectedItem == 0)) {
+        requestSound(ui, SOUND_CLICK);
         ui.selectedItem = 0;
         return TITLE;
     }
@@ -1327,16 +1393,19 @@ int updateButtonMenu(UiState& ui, int itemCount, int firstButtonY) {
     }
 
     if (IsKeyPressed(KEY_UP)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         ui.selectedItem = moveSelection(ui.selectedItem, -1, itemCount);
         return -1;
     }
     if (IsKeyPressed(KEY_DOWN)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         ui.selectedItem = moveSelection(ui.selectedItem, 1, itemCount);
         return -1;
     }
     if (IsKeyPressed(KEY_ENTER)) {
+        requestSound(ui, SOUND_CLICK);
         ui.isMouseActive = false;
         if (ui.selectedItem < 0) {
             ui.selectedItem = 0;
@@ -1344,6 +1413,7 @@ int updateButtonMenu(UiState& ui, int itemCount, int firstButtonY) {
         return ui.selectedItem;
     }
     if (isMouseClick && ui.selectedItem >= 0) {
+        requestSound(ui, SOUND_CLICK);
         return ui.selectedItem;
     }
     return -1;
@@ -1381,6 +1451,7 @@ void drawGameplay(const GameState& game, const Textures& textures) {
 // game is freed, so a new maze starts), CAMPAIGN_MAP for Quit to map, otherwise PAUSED.
 Screen updatePause(GameState& game, UiState& ui) {
     if (IsKeyPressed(KEY_ESCAPE)) {
+        requestSound(ui, SOUND_CLICK);
         return PLAYING;
     }
     int choice = updateButtonMenu(ui, PAUSE_ITEM_COUNT, PAUSE_BUTTON_Y);
@@ -1418,6 +1489,7 @@ void drawPause(const GameState& game, const Textures& textures, const UiState& u
 // otherwise RESULT.
 Screen updateResult(GameState& game, UiState& ui) {
     if (IsKeyPressed(KEY_ESCAPE)) {
+        requestSound(ui, SOUND_CLICK);
         destroyGame(game);
         ui.selectedItem = 0;
         return CAMPAIGN_MAP;
@@ -1684,6 +1756,7 @@ void drawPassScreen(const GameState& game, const Textures& textures) {
 // otherwise MP_RESULT.
 Screen updateMultiplayerResult(GameState& game, UiState& ui) {
     if (IsKeyPressed(KEY_ESCAPE)) {
+        requestSound(ui, SOUND_CLICK);
         destroyGame(game);
         ui.selectedItem = 0;
         return MAIN_MENU;
@@ -1726,6 +1799,7 @@ void drawMultiplayerResult(const GameState& game, const Textures& textures, cons
 // Returns MAIN_MENU for Back or Esc, otherwise SETTINGS.
 Screen updateSettings(UiState& ui) {
     if (IsKeyPressed(KEY_ESCAPE)) {
+        requestSound(ui, SOUND_CLICK);
         ui.selectedItem = 0;
         return MAIN_MENU;
     }
@@ -1797,7 +1871,14 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
     }
 
     if (screen == PLAYING && game.isMultiplayer) {
-        return updateMultiplayerGame(game, ui, deltaTime);
+        int playerIndex = game.currentPlayer;
+        Player before = game.players[playerIndex];
+        Screen next = updateMultiplayerGame(game, ui, deltaTime);
+        requestPlayerSounds(game, playerIndex, before, ui);
+        if (next == MP_RESULT && game.winner >= 0) {
+            requestSound(ui, SOUND_WIN);
+        }
+        return next;
     }
 
     if (screen == PLAYING) {
@@ -1815,12 +1896,18 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
         } else if (IsKeyDown(KEY_RIGHT)) {
             heldDirection = RIGHT;
         }
+        Player before = game.players[0];
         if (IsKeyPressed(KEY_M)) {
             useMap(game.maze, game.players[0]);
         }
         updateCampaign(game, heldDirection, deltaTime);
         updateVisualPosition(game.players[0], deltaTime);
-        return checkLevelEnd(game, ui);
+        requestPlayerSounds(game, 0, before, ui);
+        Screen next = checkLevelEnd(game, ui);
+        if (next == RESULT && ui.resultStars > 0) {
+            requestSound(ui, SOUND_WIN);
+        }
+        return next;
     }
 
     if (screen == PAUSED) {

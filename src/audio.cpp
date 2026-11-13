@@ -21,49 +21,64 @@ Sounds loadSounds() {
     return sounds;
 }
 
-// Plays the sound for id unless sounds are disabled or id is invalid.
-void playSound(const Sounds& sounds, SoundId id) {
-    if (!sounds.isEnabled) {
-        return;
-    }
-
-    Sound sound = {};
+// Copies the sound for id into sound. Returns false if id is not a sound.
+static bool getSound(const Sounds& sounds, SoundId id, Sound& sound) {
     switch (id) {
         case SOUND_FOOTSTEP:
             sound = sounds.footstep;
-            break;
+            return true;
         case SOUND_TORCH_CRACKLE:
             sound = sounds.torchCrackle;
-            break;
+            return true;
         case SOUND_LOW_TORCH:
             sound = sounds.lowTorch;
-            break;
+            return true;
         case SOUND_PICKUP:
             sound = sounds.pickup;
-            break;
+            return true;
         case SOUND_DOOR_UNLOCK:
             sound = sounds.doorUnlock;
-            break;
+            return true;
         case SOUND_TRAP_SNAP:
             sound = sounds.trapSnap;
-            break;
+            return true;
         case SOUND_WIN:
             sound = sounds.win;
-            break;
+            return true;
         case SOUND_TORCH_OUT:
             sound = sounds.torchOut;
-            break;
+            return true;
         case SOUND_CLICK:
             sound = sounds.click;
-            break;
+            return true;
         case SOUND_TURN_CHIME:
             sound = sounds.turnChime;
-            break;
+            return true;
         default:
-            return;
+            return false;
     }
+}
 
-    PlaySound(sound);
+// Plays the sound for id unless sounds are disabled or id is invalid.
+void playSound(const Sounds& sounds, SoundId id) {
+    Sound sound = {};
+    if (sounds.isEnabled && getSound(sounds, id, sound)) {
+        PlaySound(sound);
+    }
+}
+
+// Stops the sound for id. Does nothing if id is invalid.
+void stopSound(const Sounds& sounds, SoundId id) {
+    Sound sound = {};
+    if (getSound(sounds, id, sound)) {
+        StopSound(sound);
+    }
+}
+
+// Returns true while the sound for id is playing, false for an invalid id.
+bool isSoundPlaying(const Sounds& sounds, SoundId id) {
+    Sound sound = {};
+    return getSound(sounds, id, sound) && IsSoundPlaying(sound);
 }
 
 // Sets whether playSound is allowed to play sounds.

@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <ctime>
 
+#include "audio.h"
 #include "game.h"
 #include "levels.h"
 #include "save.h"
@@ -79,11 +80,40 @@ static void startMultiplayerGame(GameState& game, const UiState& ui, Level& aren
     game.turnSecondsLeft = getTurnSeconds(1, game.playerCount, game.maze.size);
 }
 
+// Plays the sounds the screens asked for this frame, the turn chime when the pass screen
+// opens, and keeps the torch crackle looping while a torch burns in the game. Everything
+// follows the Sound setting. Returns nothing.
+static void playFrameSounds(Sounds& sounds, UiState& ui, const GameState& game, Screen screen,
+                            Screen previousScreen) {
+    setSoundEnabled(sounds, ui.settings.isSoundOn);
+    if (screen == PASS_SCREEN && previousScreen != PASS_SCREEN) {
+        ui.soundRequests[SOUND_TURN_CHIME] = true;
+    }
+    for (int i = 0; i < SOUND_COUNT; i++) {
+        if (ui.soundRequests[i]) {
+            playSound(sounds, static_cast<SoundId>(i));
+            ui.soundRequests[i] = false;
+        }
+    }
+
+    bool isTorchBurning = ui.settings.isSoundOn && screen == PLAYING &&
+                          game.players != nullptr && !game.players[game.currentPlayer].isOut;
+    bool isCrackling = isSoundPlaying(sounds, SOUND_TORCH_CRACKLE);
+    if (isTorchBurning && !isCrackling) {
+        // The crackle is short, so it starts again whenever it ends
+        playSound(sounds, SOUND_TORCH_CRACKLE);
+    } else if (!isTorchBurning && isCrackling) {
+        stopSound(sounds, SOUND_TORCH_CRACKLE);
+    }
+}
+
 // Opens the game window and runs the screen state machine.
 int main() {
     InitWindow(1280, 720, "Crossroads");
     SetTargetFPS(60);
     SetExitKey(KEY_NULL);
+    InitAudioDevice();
+    Sounds sounds = loadSounds();
 
     GameState game = createEmptyGame();
     UiState ui = {};
@@ -97,6 +127,7 @@ int main() {
 
     while (!WindowShouldClose() && !ui.isExitRequested) {
         float deltaTime = GetFrameTime();
+        Screen previousScreen = screen;
         Screen nextScreen = updateScreen(screen, game, ui, deltaTime);
         if (nextScreen != screen) {
             ui.screenSeconds = 0.0f;
@@ -117,6 +148,7 @@ int main() {
         if (ui.isExitRequested) {
             break;
         }
+        playFrameSounds(sounds, ui, game, screen, previousScreen);
 
         BeginDrawing();
         ClearBackground(BLACK);
@@ -126,6 +158,8 @@ int main() {
 
     destroyGame(game);
     unloadTextures(textures);
+    unloadSounds(sounds);
+    CloseAudioDevice();
     CloseWindow();
     return 0;
 }

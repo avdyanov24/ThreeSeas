@@ -25,6 +25,12 @@ Sounds loadSounds();
 // Plays a sound, unless sound is switched off.
 void playSound(const Sounds& sounds, SoundId id);
 
+// Stops a sound if it is playing.
+void stopSound(const Sounds& sounds, SoundId id);
+
+// Returns true while a sound is playing.
+bool isSoundPlaying(const Sounds& sounds, SoundId id);
+
 // Switches all sounds on or off.
 void setSoundEnabled(Sounds& sounds, bool isEnabled);
 

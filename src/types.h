@@ -55,7 +55,8 @@ enum SoundId {
     SOUND_WIN,
     SOUND_TORCH_OUT,
     SOUND_CLICK,
-    SOUND_TURN_CHIME
+    SOUND_TURN_CHIME,
+    SOUND_COUNT  // how many sounds there are, not a sound itself
 };
 
 // ---------- Game structs ----------
@@ -168,6 +169,7 @@ struct UiState {
     bool hasLevelBest[LEVEL_COUNT];
     WinRecord topWins[LEADERBOARD_WINS];  // leaderboard: players with the most wins
     int topWinCount;
+    bool soundRequests[SOUND_COUNT];  // sounds the screens ask for this frame; main plays them
 };
 
 #endif  // TYPES_H
