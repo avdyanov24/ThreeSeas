@@ -40,7 +40,6 @@ const int MP_RESULT_ITEM_COUNT = 2;
 const int MP_RESULT_BUTTON_Y = 440;
 const char* const MP_RESULT_ITEMS[MP_RESULT_ITEM_COUNT] = {"Rematch", "Menu"};
 const int ERA_COUNT = 3;
-const int PINS_PER_ERA = 3;
 const int PIN_RADIUS = 36;
 const int PIN_SIZE = 64;
 const int EMBER_COUNT = 40;
@@ -334,35 +333,33 @@ float getEasedProgress(float seconds, float duration) {
     return 1.0f - remaining * remaining * remaining;
 }
 
-// Notices when the selected era changes. Sets previousEra to the era shown before the
-// last switch and returns the seconds since that switch.
-float getTimeSinceEraSwitch(int selectedEra, int& previousEra) {
-    // static: the animation has to remember the last era and the switch time between
-    // frames, and UiState (types.h) must not be changed in this task
-    static int shownEra = 0;
-    static int lastEra = 0;
-    static double switchTime = 0.0;
-    if (selectedEra != shownEra) {
-        lastEra = shownEra == 0 ? selectedEra : shownEra;
-        shownEra = selectedEra;
-        switchTime = GetTime();
+// Notices when the selected era changes: remembers in ui the era shown before the switch
+// and the time of the switch. Call it on every frame the campaign map is shown.
+void updateEraSwitch(UiState& ui) {
+    if (ui.selectedEra != ui.shownEra) {
+        ui.previousEra = ui.shownEra == 0 ? ui.selectedEra : ui.shownEra;
+        ui.shownEra = ui.selectedEra;
+        ui.eraSwitchTime = GetTime();
     }
-    previousEra = lastEra;
-    return static_cast<float>(GetTime() - switchTime);
 }
 
-// Moves a pin's selection a little towards selected or not selected each frame, so its
-// ring fades and its size grows smoothly. Returns the selection from 0 to 1.
-float getPinRingAlpha(int pin, bool isSelected) {
-    // static: each pin's fade has to continue from where it was last frame
-    static float ringAlpha[PINS_PER_ERA] = {0.0f, 0.0f, 0.0f};
+// Returns the seconds since the selected era last switched.
+float getTimeSinceEraSwitch(const UiState& ui) {
+    return static_cast<float>(GetTime() - ui.eraSwitchTime);
+}
+
+// Moves each pin's selection in ui a little towards selected or not selected, so its ring
+// fades and its size grows smoothly. Call it on every frame the campaign map is shown.
+void updatePinRings(UiState& ui) {
     float step = GetFrameTime() * PIN_RING_FADE_SPEED;
-    if (isSelected) {
-        ringAlpha[pin] = ringAlpha[pin] + step > 1.0f ? 1.0f : ringAlpha[pin] + step;
-    } else {
-        ringAlpha[pin] = ringAlpha[pin] - step < 0.0f ? 0.0f : ringAlpha[pin] - step;
+    for (int pin = 0; pin < PINS_PER_ERA; pin++) {
+        float& ringAlpha = ui.pinRingAlpha[pin];
+        if (ui.selectedItem == pin) {
+            ringAlpha = ringAlpha + step > 1.0f ? 1.0f : ringAlpha + step;
+        } else {
+            ringAlpha = ringAlpha - step < 0.0f ? 0.0f : ringAlpha - step;
+        }
     }
-    return ringAlpha[pin];
 }
 
 // Returns true if the player has a saved result for this level.
@@ -1190,7 +1187,7 @@ void drawCampaignPin(const Textures& textures, const UiState& ui, int pin, float
     bool isFinished = getBestResult(ui.playerName, levelId, best);
 
     // selection goes from 0 (not selected) to 1 (selected) over a few frames
-    float selection = getPinRingAlpha(pin, ui.selectedItem == pin);
+    float selection = ui.pinRingAlpha[pin];
     float growth = 1.0f + PIN_SELECTED_GROWTH * selection;
     int size = static_cast<int>(static_cast<float>(PIN_SIZE) * growth);
 
@@ -1236,8 +1233,8 @@ void drawCampaignMap(const Textures& textures, const UiState& ui) {
 
     drawTextPlate("Campaign", SCREEN_WIDTH / 2, 36, 38, GOLD);
 
-    int previousEra = ui.selectedEra;
-    float secondsSinceSwitch = getTimeSinceEraSwitch(ui.selectedEra, previousEra);
+    int previousEra = ui.previousEra;
+    float secondsSinceSwitch = getTimeSinceEraSwitch(ui);
     float spinProgress = getEasedProgress(secondsSinceSwitch, ERA_SPIN_SECONDS);
     float fadeProgress = getEasedProgress(secondsSinceSwitch, PIN_FADE_SECONDS);
 
@@ -1764,11 +1761,9 @@ void drawSettings(const Textures& textures, const UiState& ui) {
                   SCREEN_WIDTH / 2, 580, 20, LIGHTGRAY);
 }
 
-}  // namespace
-
 // Reads input and runs the logic of the current screen. Returns the screen to show
 // next (the same one if nothing changed). Never draws.
-Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime) {
+Screen getNextScreen(Screen screen, GameState& game, UiState& ui, float deltaTime) {
     if (screen == TITLE) {
         if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE)) {
             ui.selectedItem = 0;
@@ -1864,6 +1859,20 @@ Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime
     }
 
     return screen;
+}
+
+}  // namespace
+
+// Reads input and runs the logic of the current screen. Returns the screen to show
+// next (the same one if nothing changed). Never draws.
+Screen updateScreen(Screen screen, GameState& game, UiState& ui, float deltaTime) {
+    Screen nextScreen = getNextScreen(screen, game, ui, deltaTime);
+    // The campaign map animations move on every frame the map is drawn, also the first one
+    if (nextScreen == CAMPAIGN_MAP) {
+        updateEraSwitch(ui);
+        updatePinRings(ui);
+    }
+    return nextScreen;
 }
 
 // Draws the current screen. Never reads input or changes the game.
