@@ -160,6 +160,14 @@
 - **Expected result:** The first checks are locked; Free Play opens each one.
 - **Actual result:** Passed on 6 Nov 2026 (4 checks, all PASS)
 
+### T21: Level data
+
+- **Purpose:** Check that the nine level records match the design table and that bad ids are handled.
+- **Function tested:** `getLevel`
+- **Input:** Read levels 1 to 9 and compare every field; ask for ids -1, 0 and 10.
+- **Expected result:** Each record matches the table; invalid ids return `nullptr`; the pointers stay valid.
+- **Actual result:** Passed on 6 Nov 2026 (11 checks, all PASS)
+
 ### T22: Place features in the maze
 
 - **Purpose:** Check that placeFeatures puts doors, water, traps, the key and items in legal places.

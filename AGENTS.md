@@ -28,7 +28,7 @@ Design pillars: dark and tense; real places and real history; strategy not luck 
 
 ### Current state
 
-Skeleton only: folders, `CMakeLists.txt`, placeholder `.h`/`.cpp` files (one-line comments), and the finished art in `art/`. The final headers with stub functions still have to be written.
+Version 1.0: all features are built and tested (see `docs/documentation.md` and `docs/qa_test_plan.md`).
 
 ## 2. The golden rule: logic vs. screen
 

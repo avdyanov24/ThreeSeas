@@ -4,7 +4,7 @@
 
 A dark dungeon maze game set in Bulgarian history. Every maze is a real historical place. You carry a torch that slowly burns down, and you only see what it lights. Find the exit before the flame dies.
 
-> **Status:** in development. The repository holds the art assets and the project skeleton. The game logic and screens are being built sprint by sprint (see [Roadmap](#roadmap)).
+> **Status:** version 1.0. The campaign (9 mazes in 3 eras), multiplayer for 2 to 4 players, the leaderboard, sounds and 24 QA tests are finished.
 
 ## Screenshots
 
@@ -42,7 +42,13 @@ Nine mazes in three eras. Get from the top-left corner to the exit in the bottom
 
 ### Multiplayer (2 to 4 players, pass the laptop)
 
-Each player sees only their own torchlight. A black screen says who is next. On your turn move up to 3 steps, or use one item (Map or Trap). The first player to reach the exit wins, or the last torch still burning. Each hero can be picked once per game, and mazes are 20 to 50 cells.
+Every player starts in their own corner of one big maze. The exit is hidden in a room far from all corners, so you have to find it. Each player sees only their own torchlight, and other players show up when they are inside your light.
+
+- Each turn has a time limit: 12 seconds on a size 20 maze, 18 on size 50, and one second less after every full round (never less than half).
+- Hold the arrow keys to walk. The turn ends when the time is over, when you press Enter, or when you step on a trap.
+- Press 1 to use a Map, or 2 to place a Trap on your cell. Others cannot see your trap.
+- A black screen says who is next. The first player to reach the exit wins, or the last torch still burning.
+- Each hero can be picked once per game, and mazes are 20 to 50 cells.
 
 ### Controls
 
@@ -69,7 +75,7 @@ Each player sees only their own torchlight. A black screen says who is next. On 
 | Locked door | A shortcut through a wall. You never need it to finish |
 | Water | Walkable at half speed |
 | Hidden trap | Visible only when you are next to it. Stepping on it holds you for 2 seconds |
-| Exit | Bottom-right corner |
+| Exit | Campaign: bottom-right corner. Multiplayer: a hidden room |
 
 ## Heroes
 
