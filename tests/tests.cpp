@@ -1,4 +1,4 @@
-// QA test functions (T01-T22).
+// QA test functions (T01-T23).
 #include <iostream>
 #include <string>
 #include <cstdlib>
@@ -832,6 +832,76 @@ void testPlaceFeatures(int& failures) {
     destroyMaze(plain);
 }
 
+// Checks the multiplayer start: one corner per player, a random exit far from every corner,
+// and the starting fuel and traps of the players.
+void testMultiplayerStart(int& failures) {
+    srand(23);
+    Maze maze = createMaze(30);
+    int cornerRows[4] = {};
+    int cornerCols[4] = {};
+    for (int index = 0; index < 4; index++) {
+        getSpawnCell(maze, index, cornerRows[index], cornerCols[index]);
+    }
+    check("T23 player 0 starts top-left", cornerRows[0] == 0 && cornerCols[0] == 0, failures);
+    check("T23 player 1 starts bottom-right",
+          cornerRows[1] == 28 && cornerCols[1] == 28, failures);
+    check("T23 player 2 starts top-right", cornerRows[2] == 0 && cornerCols[2] == 28, failures);
+    check("T23 player 3 starts bottom-left", cornerRows[3] == 28 && cornerCols[3] == 0, failures);
+    destroyMaze(maze);
+
+    bool isExitAlwaysSingle = true;
+    bool isExitAlwaysFar = true;
+    for (int attempt = 0; attempt < 5; attempt++) {
+        Maze arena = createMaze(30);
+        generatePaths(arena, 0, 0);
+        placeRandomExit(arena);
+        int exits = 0;
+        for (int row = 0; row < arena.size; row++) {
+            for (int col = 0; col < arena.size; col++) {
+                if (arena.cells[row][col].tile != EXIT) {
+                    continue;
+                }
+                exits++;
+                for (int index = 0; index < 4; index++) {
+                    int distance = std::abs(row - cornerRows[index]) +
+                                   std::abs(col - cornerCols[index]);
+                    if (distance < arena.size / 3) {
+                        isExitAlwaysFar = false;
+                    }
+                }
+            }
+        }
+        if (exits != 1) {
+            isExitAlwaysSingle = false;
+        }
+        destroyMaze(arena);
+    }
+    check("T23 there is exactly one exit", isExitAlwaysSingle, failures);
+    check("T23 the exit is at least size / 3 from every corner", isExitAlwaysFar, failures);
+
+    GameState game = createEmptyGame();
+    startLevel(game, *getLevel(1), 30, true);
+    std::string names[4] = {"Ana", "Boris", "Cvetan", "Dimo"};
+    CharacterId characters[4] = {ASPARUH, KRUM, BORIS, SIMEON};
+    createPlayers(game, 4, names, characters);
+    bool isEveryoneInOwnCorner = game.playerCount == 4;
+    bool hasEveryoneOneTrap = true;
+    for (int index = 0; index < game.playerCount; index++) {
+        if (game.players[index].row != cornerRows[index] ||
+            game.players[index].col != cornerCols[index]) {
+            isEveryoneInOwnCorner = false;
+        }
+        if (game.players[index].traps != 1) {
+            hasEveryoneOneTrap = false;
+        }
+    }
+    check("T23 every player starts in their own corner", isEveryoneInOwnCorner, failures);
+    check("T23 every multiplayer player starts with one trap", hasEveryoneOneTrap, failures);
+    check("T23 fuel is size * 2", game.players[1].maxFuel == 60.0f, failures);
+    check("T23 Asparuh gets 50 percent more fuel", game.players[0].maxFuel == 90.0f, failures);
+    destroyGame(game);
+}
+
 int main() {
 	int failures = 0;
     testSizeValidation(failures);
@@ -858,6 +928,7 @@ int main() {
     testDestroyMaze(failures);
     testUnlocks(failures);
     testPlaceFeatures(failures);
+    testMultiplayerStart(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";

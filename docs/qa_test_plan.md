@@ -167,3 +167,11 @@
 - **Input:** Place features on a size 30 maze with a level that has doors and water, and on a size 20 maze with a level that has none.
 - **Expected result:** Start and exit stay clear, one key, doors only between two floors, water and level traps placed, no trap next to the start, nothing on the spawn corners, the exit stays reachable; the plain level has no key, door or water.
 - **Actual result:** Passed on 14 Nov 2026 (13 checks, all PASS)
+
+### T23: Multiplayer start
+
+- **Purpose:** Check the corner spawns, the random exit and the starting values of multiplayer players.
+- **Function tested:** `getSpawnCell`, `placeRandomExit`, `startLevel`, `createPlayers`
+- **Input:** Get the 4 spawn cells of a size 30 maze; place a random exit on 5 mazes; start a 4-player multiplayer game.
+- **Expected result:** Spawns are top-left, bottom-right, top-right, bottom-left; each maze has one exit at least size / 3 from every corner; every player starts in their own corner with 1 trap and size * 2 fuel (Asparuh 50 percent more).
+- **Actual result:** Passed on 14 Nov 2026 (10 checks, all PASS)
