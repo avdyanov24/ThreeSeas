@@ -159,3 +159,11 @@
 - **Input:** Check level 2 without a previous result; KRUM before era 1 is entered; arena 1 with 0 eras finished; then check each with Free Play.
 - **Expected result:** The first checks are locked; Free Play opens each one.
 - **Actual result:** Passed on 6 Nov 2026 (4 checks, all PASS)
+
+### T22: Place features in the maze
+
+- **Purpose:** Check that placeFeatures puts doors, water, traps, the key and items in legal places.
+- **Function tested:** `placeFeatures`
+- **Input:** Place features on a size 30 maze with a level that has doors and water, and on a size 20 maze with a level that has none.
+- **Expected result:** Start and exit stay clear, one key, doors only between two floors, water and level traps placed, no trap next to the start, nothing on the spawn corners, the exit stays reachable; the plain level has no key, door or water.
+- **Actual result:** Passed on 14 Nov 2026 (13 checks, all PASS)

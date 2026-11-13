@@ -1,4 +1,4 @@
-// QA test functions (T01-T20).
+// QA test functions (T01-T22).
 #include <iostream>
 #include <string>
 #include <cstdlib>
@@ -719,6 +719,119 @@ void testUnlocks(int& failures) {
 }
 
 // Prints the test summary and returns failure when any check fails.
+// Checks placeFeatures: start and exit stay clear, one key, doors only between floors, water,
+// level traps away from the start, nothing on the spawn corners, and the exit stays reachable.
+void testPlaceFeatures(int& failures) {
+    srand(22);
+    const Level* level = nullptr;
+    for (int id = 1; id <= LEVEL_COUNT; id++) {
+        const Level* candidate = getLevel(id);
+        if (candidate != nullptr && candidate->doors > 0 && candidate->hasWater) {
+            level = candidate;
+            break;
+        }
+    }
+    check("T22 a level with doors and water exists", level != nullptr, failures);
+    if (level == nullptr) {
+        return;
+    }
+
+    Maze maze = createMaze(30);
+    generatePaths(maze, 0, 0);
+    connectExit(maze);
+    placeFeatures(maze, *level);
+
+    int keys = 0;
+    int doors = 0;
+    int water = 0;
+    int levelTraps = 0;
+    int trapsNearStart = 0;
+    int badDoors = 0;
+    for (int row = 0; row < maze.size; row++) {
+        for (int col = 0; col < maze.size; col++) {
+            const Cell& cell = maze.cells[row][col];
+            if (cell.item == KEY) {
+                keys++;
+            }
+            if (cell.tile == WATER) {
+                water++;
+            }
+            if (cell.trapOwner == LEVEL_TRAP) {
+                levelTraps++;
+                if (row + col < 3) {
+                    trapsNearStart++;
+                }
+            }
+            if (cell.tile == DOOR) {
+                doors++;
+                bool isOpenVertically = row > 0 && row < maze.size - 1 &&
+                                        maze.cells[row - 1][col].tile != WALL &&
+                                        maze.cells[row - 1][col].tile != DOOR &&
+                                        maze.cells[row + 1][col].tile != WALL &&
+                                        maze.cells[row + 1][col].tile != DOOR;
+                bool isOpenHorizontally = col > 0 && col < maze.size - 1 &&
+                                          maze.cells[row][col - 1].tile != WALL &&
+                                          maze.cells[row][col - 1].tile != DOOR &&
+                                          maze.cells[row][col + 1].tile != WALL &&
+                                          maze.cells[row][col + 1].tile != DOOR;
+                if (!isOpenVertically && !isOpenHorizontally) {
+                    badDoors++;
+                }
+            }
+        }
+    }
+
+    int itemsOnCorners = 0;
+    for (int index = 0; index < 4; index++) {
+        int row = 0;
+        int col = 0;
+        getSpawnCell(maze, index, row, col);
+        if (maze.cells[row][col].item != NO_ITEM || maze.cells[row][col].trapOwner != NO_TRAP) {
+            itemsOnCorners++;
+        }
+    }
+
+    check("T22 start cell is floor with no item",
+          maze.cells[0][0].tile == FLOOR && maze.cells[0][0].item == NO_ITEM, failures);
+    check("T22 exit cell is still EXIT", maze.cells[29][29].tile == EXIT, failures);
+    check("T22 level with doors has exactly one key", keys == 1, failures);
+    check("T22 doors are placed and not more than the level asks",
+          doors > 0 && doors <= level->doors, failures);
+    check("T22 every door has floor on two opposite sides", badDoors == 0, failures);
+    check("T22 water is placed", water > 0, failures);
+    check("T22 level traps are placed", levelTraps > 0, failures);
+    check("T22 no trap next to the start", trapsNearStart == 0, failures);
+    check("T22 nothing lies on the spawn corners", itemsOnCorners == 0, failures);
+    check("T22 exit is reachable after placing features", canReachExit(maze), failures);
+    destroyMaze(maze);
+
+    const Level* plainLevel = getLevel(1);
+    Maze plain = createMaze(20);
+    generatePaths(plain, 0, 0);
+    connectExit(plain);
+    placeFeatures(plain, *plainLevel);
+    int plainKeys = 0;
+    int plainDoors = 0;
+    int plainWater = 0;
+    for (int row = 0; row < plain.size; row++) {
+        for (int col = 0; col < plain.size; col++) {
+            if (plain.cells[row][col].item == KEY) {
+                plainKeys++;
+            }
+            if (plain.cells[row][col].tile == DOOR) {
+                plainDoors++;
+            }
+            if (plain.cells[row][col].tile == WATER) {
+                plainWater++;
+            }
+        }
+    }
+    check("T22 level without doors has no key and no door", plainKeys == 0 && plainDoors == 0,
+          failures);
+    check("T22 level without water has no water", plainWater == 0, failures);
+    destroyMaze(plain);
+}
+
 int main() {
 	int failures = 0;
     testSizeValidation(failures);
@@ -744,6 +857,7 @@ int main() {
     testSaveAndLoadResults(failures);
     testDestroyMaze(failures);
     testUnlocks(failures);
+    testPlaceFeatures(failures);
 
 	if (failures == 0) {
 		std::cout << "All tests passed\n";
