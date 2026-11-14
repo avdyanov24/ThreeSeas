@@ -127,9 +127,10 @@ void loadUiTextures(Textures& textures);
 void unloadTextures(Textures& textures);
 
 // Returns the world position that sits in the top-left corner of the screen so the
-// viewer is centred. The camera stops at the maze border, and a maze smaller than
-// the window is centred. World position (0, 0) is the top-left of the border ring
-// around the maze, so cell (row, col) starts at ((col + 1) * TILE_SIZE, (row + 1) * TILE_SIZE).
+// viewer is centred, also next to the maze border (the dark around the maze is fog).
+// A maze smaller than the window is centred. World position (0, 0) is the top-left of
+// the border ring around the maze, so cell (row, col) starts at
+// ((col + 1) * TILE_SIZE, (row + 1) * TILE_SIZE).
 Vector2 getCameraOrigin(const Maze& maze, const Player& viewer);
 
 // Draws the maze as the viewer sees it, with a one-tile wall border around it.
