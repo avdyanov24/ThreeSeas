@@ -23,6 +23,8 @@ const int MENU_BUTTON_X = (SCREEN_WIDTH - BUTTON_WIDTH) / 2;
 const int MENU_BUTTON_START_Y = 218;
 const int BACK_BUTTON_X = (SCREEN_WIDTH - BUTTON_WIDTH) / 2;
 const int BACK_BUTTON_Y = 590;
+const int INTRO_BACK_X = 364;   // the level intro has Back and Start side by side
+const int INTRO_START_X = 660;
 const int MENU_ITEM_COUNT = 6;
 const int LOGO_WIDTH = 366;
 const int LOGO_HEIGHT = 144;
@@ -45,6 +47,10 @@ const int PIN_RADIUS = 36;
 const int PIN_SIZE = 64;
 const int EMBER_COUNT = 40;
 const float SCREEN_FADE_SECONDS = 0.3f;
+const float END_BEAT_SECONDS = 0.8f;  // pause on the maze before the result screen
+const int HEADING_Y = 24;
+const int HEADING_SIZE = 40;
+const int BUTTON_CAP_WIDTH = 10;  // width of the left and right ends of the button art
 // Where each maze pin stands on its era map: PIN_POSITIONS[era - 1][pin] = {x, y}
 const int PIN_POSITIONS[ERA_COUNT][PINS_PER_ERA][2] = {
     {{870, 240}, {600, 420}, {700, 305}},
@@ -93,6 +99,25 @@ bool isPointerOverButton(Vector2 pointer, int x, int y, int width, int height) {
     return CheckCollisionPointRec(pointer, bounds);
 }
 
+// Draws button art into bounds without stretching its pixels unevenly: the left and right
+// ends keep their shape at the same scale as the height, only the plain middle gets wider.
+static void drawButtonArt(const Texture2D& texture, Rectangle bounds, Color tint) {
+    float textureWidth = static_cast<float>(texture.width);
+    float textureHeight = static_cast<float>(texture.height);
+    float cap = static_cast<float>(BUTTON_CAP_WIDTH);
+    float scaledCap = cap * bounds.height / textureHeight;
+    Rectangle leftSource = {0.0f, 0.0f, cap, textureHeight};
+    Rectangle middleSource = {cap, 0.0f, textureWidth - 2.0f * cap, textureHeight};
+    Rectangle rightSource = {textureWidth - cap, 0.0f, cap, textureHeight};
+    Rectangle left = {bounds.x, bounds.y, scaledCap, bounds.height};
+    Rectangle middle = {bounds.x + scaledCap, bounds.y, bounds.width - 2.0f * scaledCap,
+                        bounds.height};
+    Rectangle right = {bounds.x + bounds.width - scaledCap, bounds.y, scaledCap, bounds.height};
+    DrawTexturePro(texture, leftSource, left, Vector2{0.0f, 0.0f}, 0.0f, tint);
+    DrawTexturePro(texture, middleSource, middle, Vector2{0.0f, 0.0f}, 0.0f, tint);
+    DrawTexturePro(texture, rightSource, right, Vector2{0.0f, 0.0f}, 0.0f, tint);
+}
+
 // Draws the shared pixel-art button style and returns the caller's click result.
 bool drawButtonStyle(const char* label, int x, int y, int width, int height,
                      bool isHighlighted, bool isClicked, const Textures& textures) {
@@ -101,20 +126,12 @@ bool drawButtonStyle(const char* label, int x, int y, int width, int height,
     Rectangle destination = {static_cast<float>(x), static_cast<float>(y),
                              static_cast<float>(width), static_cast<float>(height)};
 
-    if (isHighlighted) {
-        // The highlighted button breathes a little, so it is clear what is selected
-        float grow = 1.0f + 0.03f * sinf(static_cast<float>(GetTime()) * 5.0f);
-        destination.x -= destination.width * (grow - 1.0f) / 2.0f;
-        destination.y -= destination.height * (grow - 1.0f) / 2.0f;
-        destination.width *= grow;
-        destination.height *= grow;
-    }
+    // The highlighted button is lifted by 2 pixels, so it is clear what is selected
+    int lift = isHighlighted ? 2 : 0;
+    destination.y -= static_cast<float>(lift);
 
     if (buttonTexture.id != 0) {
-        Rectangle source = {0.0f, 0.0f, static_cast<float>(buttonTexture.width),
-                            static_cast<float>(buttonTexture.height)};
-        DrawTexturePro(buttonTexture, source, destination, Vector2{0.0f, 0.0f}, 0.0f,
-                       WHITE);
+        drawButtonArt(buttonTexture, destination, WHITE);
     } else {
         DrawRectangleRec(destination, isHighlighted ? Color{125, 63, 24, 255}
                                                    : Color{45, 35, 32, 255});
@@ -123,7 +140,7 @@ bool drawButtonStyle(const char* label, int x, int y, int width, int height,
 
     int fontSize = 22;
     int textWidth = MeasureText(label, fontSize);
-    DrawText(label, x + (width - textWidth) / 2, y + (height - fontSize) / 2, fontSize,
+    DrawText(label, x + (width - textWidth) / 2, y - lift + (height - fontSize) / 2, fontSize,
              isHighlighted ? GOLD : RAYWHITE);
     return isClicked;
 }
@@ -167,6 +184,12 @@ void drawFadedTextPlate(const char* text, int centerX, int y, int fontSize, Colo
 // Draws text centred on centerX with a dark plate behind it. Returns nothing.
 void drawTextPlate(const char* text, int centerX, int y, int fontSize, Color color) {
     drawFadedTextPlate(text, centerX, y, fontSize, color, 1.0f);
+}
+
+// Draws the heading of a full screen: gold text on a plate, centred at the top. Every
+// screen uses it so all headings look the same.
+static void drawHeading(const char* text) {
+    drawTextPlate(text, SCREEN_WIDTH / 2, HEADING_Y, HEADING_SIZE, GOLD);
 }
 
 // Draws a square picture of the given size with its top-left corner at (x, y). alpha (0 to 1)
@@ -342,9 +365,7 @@ void drawEraTab(const char* label, int slot, float selection, const Textures& te
 
     const Texture2D& texture = isSelected ? textures.buttonHover : textures.buttonNormal;
     if (texture.id != 0) {
-        Rectangle source = {0.0f, 0.0f, static_cast<float>(texture.width),
-                            static_cast<float>(texture.height)};
-        DrawTexturePro(texture, source, bounds, Vector2{0.0f, 0.0f}, 0.0f, shade);
+        drawButtonArt(texture, bounds, shade);
     } else {
         Color fill = isSelected ? Color{125, 63, 24, 255} : Color{45, 35, 32, 255};
         DrawRectangleRec(bounds, ColorTint(fill, shade));
@@ -686,12 +707,16 @@ Screen updateLevelIntro(UiState& ui) {
     if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f || isMouseClick) {
         ui.isMouseActive = true;
     }
+    // Back is item 0 and Start is item 1, side by side under the panel
     if (ui.isMouseActive) {
-        ui.selectedItem =
-            isPointerOverButton(pointer, BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH,
-                                BUTTON_HEIGHT)
-                ? 0
-                : -1;
+        ui.selectedItem = -1;
+        if (isPointerOverButton(pointer, INTRO_BACK_X, BACK_BUTTON_Y, BUTTON_WIDTH,
+                                BUTTON_HEIGHT)) {
+            ui.selectedItem = 0;
+        } else if (isPointerOverButton(pointer, INTRO_START_X, BACK_BUTTON_Y, BUTTON_WIDTH,
+                                       BUTTON_HEIGHT)) {
+            ui.selectedItem = 1;
+        }
     }
 
     int key = GetCharPressed();
@@ -718,7 +743,7 @@ Screen updateLevelIntro(UiState& ui) {
         ui.characters[0] = getNextUnlockedHero(ui, 1);
     }
 
-    if (IsKeyPressed(KEY_ENTER)) {
+    if (IsKeyPressed(KEY_ENTER) || (isMouseClick && ui.selectedItem == 1)) {
         requestSound(ui, SOUND_CLICK);
         int size = 0;
         if (parseWholeNumber(ui.typedText, size) && isValidSize(size, false)) {
@@ -1102,7 +1127,7 @@ void drawMainMenu(const Textures& textures, const UiState& ui) {
 void drawLeaderboard(const Textures& textures, const UiState& ui) {
     drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
     drawDarkLayer();
-    drawTextPlate("Leaderboard", SCREEN_WIDTH / 2, 24, 38, GOLD);
+    drawHeading("Leaderboard");
 
     drawPanel(60, 90, 600, 470);
     drawPanel(700, 90, 520, 470);
@@ -1158,7 +1183,7 @@ void drawLeaderboard(const Textures& textures, const UiState& ui) {
 void drawHowToPlay(const Textures& textures, const UiState& ui) {
     drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
     drawDarkLayer();
-    drawTextPlate("How to Play", SCREEN_WIDTH / 2, 24, 38, GOLD);
+    drawHeading("How to Play");
     drawPanel(30, 72, 610, 500);
     drawPanel(660, 72, 590, 500);
 
@@ -1204,8 +1229,7 @@ void drawLevelIntro(const Textures& textures, const UiState& ui) {
     if (level.year != 0) {
         heading = TextFormat("%s - %d", level.place.c_str(), level.year);
     }
-    int headingWidth = MeasureText(heading, 44);
-    DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 36, 44, GOLD);
+    drawHeading(heading);
     int eraWidth = MeasureText(level.era.c_str(), 24);
     DrawText(level.era.c_str(), (SCREEN_WIDTH - eraWidth) / 2, 94, 24, RAYWHITE);
 
@@ -1230,15 +1254,18 @@ void drawLevelIntro(const Textures& textures, const UiState& ui) {
 
     DrawLine(180, 350, 1100, 350, Color{110, 78, 40, 255});
 
+    // The portrait at its own size (128 px) with arrows that show the hero can be changed
     const Texture2D& portrait = textures.heroes[ui.characters[0]].portrait;
-    drawIcon(portrait, 180, 372, 100, 1.0f);
+    drawIcon(portrait, 186, 368, 128, 1.0f);
+    DrawText("<", 160, 418, 30, GOLD);
+    DrawText(">", 324, 418, 30, GOLD);
     const Character* hero = getCharacter(ui.characters[0]);
-    DrawText(hero->name.c_str(), 300, 376, 28, GOLD);
-    DrawText(hero->power.c_str(), 300, 414, 22, RAYWHITE);
+    DrawText(hero->name.c_str(), 360, 376, 28, GOLD);
+    DrawText(hero->power.c_str(), 360, 414, 22, RAYWHITE);
     if (ui.characters[0] == getSuggestedHero(ui.selectedLevel)) {
-        DrawText("(suggested)", 300, 446, 20, LIGHTGRAY);
+        DrawText("(suggested)", 360, 446, 20, LIGHTGRAY);
     }
-    DrawText("Left/Right: change hero", 300, 480, 20, LIGHTGRAY);
+    DrawText("Left/Right: change hero", 360, 480, 20, LIGHTGRAY);
 
     DrawText("Maze size (10 to 50):", 800, 376, 24, RAYWHITE);
     drawTextInput(ui.typedText, 800, 414, 200, true, ui.errorMessage);
@@ -1247,8 +1274,10 @@ void drawLevelIntro(const Textures& textures, const UiState& ui) {
     int hintWidth = MeasureText(hint, 22);
     DrawText(hint, (SCREEN_WIDTH - hintWidth) / 2, 548, 22, LIGHTGRAY);
 
-    drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
+    drawButtonStyle("Back", INTRO_BACK_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
                     ui.selectedItem == 0, false, textures);
+    drawButtonStyle("Start", INTRO_START_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
+                    ui.selectedItem == 1, false, textures);
 }
 
 // Draws one campaign pin: grey when locked, orange when open, gold when finished,
@@ -1332,7 +1361,7 @@ void drawCampaignMap(const Textures& textures, const UiState& ui) {
     }
 
     const char* eraName = getLevel(getLevelIdOfPin(ui.selectedEra, 0))->era.c_str();
-    drawFadedTextPlate(eraName, SCREEN_WIDTH / 2, 36, 38, GOLD, 1.0f);
+    drawHeading(eraName);
 
     for (int pin = 0; pin < PINS_PER_ERA; pin++) {
         drawCampaignPin(textures, ui, pin, fadeProgress);
@@ -1512,7 +1541,7 @@ Screen updateResult(GameState& game, UiState& ui) {
 // "Your torch went out", and the Play again and Back to map buttons.
 void drawResult(const GameState& game, const Textures& textures, const UiState& ui) {
     bool isWin = ui.resultStars > 0;
-    drawMovingBackground(isWin ? textures.resultWin : textures.resultLose,
+    drawScreenBackground(isWin ? textures.resultWin : textures.resultLose,
                          Color{12, 10, 16, 255});
 
     drawEmbers();
@@ -1532,6 +1561,18 @@ void drawResult(const GameState& game, const Textures& textures, const UiState& 
                                                             : textures.starEmpty;
             drawIcon(star, SCREEN_WIDTH / 2 - 80 + i * 80 - starSize / 2, 210 - starSize / 2,
                      starSize, starProgress > 0.0f ? 1.0f : 0.0f);
+        }
+
+        // The hero cheers on the floor left of the buttons, 4 times the sprite size
+        const Texture2D* cheer = textures.heroes[ui.characters[0]].win;
+        int frame = static_cast<int>(GetTime() * 6.0) % HERO_FRAMES;
+        if (cheer[frame].id != 0) {
+            Rectangle source = {0.0f, 0.0f, static_cast<float>(cheer[frame].width),
+                                static_cast<float>(cheer[frame].height)};
+            Rectangle destination = {360.0f, 420.0f, source.width * 4.0f,
+                                     source.height * 4.0f};
+            DrawTexturePro(cheer[frame], source, destination, Vector2{0.0f, 0.0f}, 0.0f,
+                           WHITE);
         }
 
         int seconds = static_cast<int>(ui.resultSeconds);
@@ -1564,8 +1605,7 @@ void drawMultiplayerSetup(const Textures& textures, const UiState& ui) {
     drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
     drawDarkLayer();
 
-    int headingWidth = MeasureText("Multiplayer", 38);
-    DrawText("Multiplayer", (SCREEN_WIDTH - headingWidth) / 2, 24, 38, GOLD);
+    drawHeading("Multiplayer");
     drawPanel(200, 76, 880, 450);
 
     std::string arenaName = "Arena " + std::to_string(ui.arenaId);
@@ -1899,6 +1939,17 @@ Screen getNextScreen(Screen screen, GameState& game, UiState& ui, float deltaTim
         updateCampaign(game, heldDirection, deltaTime);
         updateVisualPosition(game.players[0], deltaTime);
         requestPlayerSounds(game, 0, before, ui);
+        // After the exit or a dead torch the maze stays on screen and fades out first
+        bool isLevelOver = game.winner == 0 || game.players[0].isOut;
+        if (!isLevelOver) {
+            ui.endBeatSeconds = 0.0f;
+            return PLAYING;
+        }
+        if (ui.endBeatSeconds < END_BEAT_SECONDS) {
+            ui.endBeatSeconds += deltaTime;
+            return PLAYING;
+        }
+        ui.endBeatSeconds = 0.0f;
         Screen next = checkLevelEnd(game, ui);
         if (next == RESULT && ui.resultStars > 0) {
             requestSound(ui, SOUND_WIN);
@@ -1972,6 +2023,11 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
         drawNameEntry(textures, ui);
     } else if (screen == PLAYING && game.players != nullptr && game.playerCount > 0) {
         drawGameplay(game, textures);
+        if (ui.endBeatSeconds > 0.0f) {
+            float fade = ui.endBeatSeconds / END_BEAT_SECONDS;
+            DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT,
+                          Fade(BLACK, fade > 1.0f ? 1.0f : fade));
+        }
     } else if (screen == PAUSED && game.players != nullptr) {
         drawPause(game, textures, ui);
     } else if (screen == RESULT) {
