@@ -952,6 +952,83 @@ void testTurnTimeAndSetup(int& failures) {
           failures);
 }
 
+// Checks the multiplayer turn: walking, slower water, a trap and the time end the turn, and
+// the next turn gets its own seconds.
+void testTurnRules(int& failures) {
+    GameState game = createEmptyGame();
+    startLevel(game, *getLevel(1), 10, true);
+    std::string names[2] = {"Ana", "Boris"};
+    CharacterId characters[2] = {ASPARUH, KRUM};
+    createPlayers(game, 2, names, characters);
+    game.turnNumber = 1;
+    game.turnSecondsLeft = getTurnSeconds(1, 2, 10);
+    for (int col = 1; col <= 4; col++) {
+        game.maze.cells[0][col] = {FLOOR, NO_ITEM, NO_TRAP};
+    }
+    Player& player = game.players[0];
+
+    bool isTurnOver = updateTurn(game, RIGHT, 0.12f);
+    check("T25 holding an arrow walks one cell", player.col == 1 && !isTurnOver, failures);
+    check("T25 the turn time counts down",
+          std::fabs(game.turnSecondsLeft - 9.88f) < 0.001f, failures);
+
+    game.maze.cells[0][1].tile = WATER;
+    game.timeSeconds = 0.0f;
+    updateTurn(game, RIGHT, 0.12f);
+    check("T25 leaving water takes longer than 0.12 s", player.col == 1, failures);
+    updateTurn(game, RIGHT, 0.12f);
+    check("T25 leaving water works after 0.24 s", player.col == 2, failures);
+
+    game.maze.cells[0][3].trapOwner = 1;
+    game.timeSeconds = 0.0f;
+    isTurnOver = updateTurn(game, RIGHT, 0.12f);
+    check("T25 another player's trap ends the turn",
+          isTurnOver && player.col == 3 && player.turnsToSkip == 1, failures);
+
+    game.turnSecondsLeft = 0.05f;
+    check("T25 the turn ends when the time runs out", updateTurn(game, -1, 0.1f), failures);
+
+    startNextTurn(game);
+    check("T25 the next player takes the turn", game.currentPlayer == 1, failures);
+    check("T25 the next turn gets its own seconds",
+          game.turnNumber == 2 && game.turnSecondsLeft == getTurnSeconds(2, 2, 10), failures);
+    destroyGame(game);
+}
+
+// Checks the Map and Trap items and the arena and hero tables.
+void testItemsAndData(int& failures) {
+    GameState game = createEmptyGame();
+    startLevel(game, *getLevel(1), 10, true);
+    std::string names[2] = {"Ana", "Boris"};
+    CharacterId characters[2] = {ASPARUH, KRUM};
+    createPlayers(game, 2, names, characters);
+    Player& player = game.players[1];
+
+    player.maps = 1;
+    check("T26 a far cell is not seen before the map", !player.seen[5][9], failures);
+    useMap(game.maze, player);
+    check("T26 the map reveals 4 cells around the player", player.seen[5][9], failures);
+    check("T26 using a map spends it", player.maps == 0, failures);
+    player.seen[5][9] = false;
+    useMap(game.maze, player);
+    check("T26 without a map nothing is revealed", !player.seen[5][9], failures);
+
+    check("T26 a trap can be placed", placeTrap(game.maze, player, 1), failures);
+    check("T26 the trap belongs to the player",
+          game.maze.cells[player.row][player.col].trapOwner == 1 && player.traps == 0,
+          failures);
+    check("T26 no trap is placed without one", !placeTrap(game.maze, player, 1), failures);
+    destroyGame(game);
+
+    check("T26 arena 1 is Pliska", getArena(1) != nullptr && getArena(1)->name == "Pliska",
+          failures);
+    check("T26 arena 3 is cold", getArena(3) != nullptr && getArena(3)->isCold, failures);
+    check("T26 arena ids outside 1 to 3 are rejected",
+          getArena(0) == nullptr && getArena(4) == nullptr, failures);
+    check("T26 Levski unlocks in era III",
+          getCharacter(LEVSKI) != nullptr && getCharacter(LEVSKI)->era == 3, failures);
+}
+
 // Runs every test and returns 0 only if every check passed.
 int main() {
     int failures = 0;
@@ -981,6 +1058,8 @@ int main() {
     testPlaceFeatures(failures);
     testMultiplayerStart(failures);
     testTurnTimeAndSetup(failures);
+    testTurnRules(failures);
+    testItemsAndData(failures);
 
     if (failures == 0) {
         std::cout << "All tests passed\n";

@@ -191,3 +191,19 @@
 - **Input:** Turn time for size 20 and 50, in the first round, after a full round and after many rounds; player counts 1, 2, 4 and 5; hero lists with and without a repeated hero.
 - **Expected result:** 12 and 18 seconds at the start, 1 second less after a full round, never below half; only 2 to 4 players are valid; a chosen hero is taken, players after the count are ignored.
 - **Actual result:** Passed on 14 Nov 2026 (13 checks, all PASS)
+
+### T25: Multiplayer turn rules
+
+- **Purpose:** Check that the turn rules work without the screen code.
+- **Function tested:** `updateTurn`, `startNextTurn`, `getStepSeconds`
+- **Input:** Hold RIGHT for 0.12 s on floor and on water, walk onto another player's trap, let the turn time run out, then start the next turn.
+- **Expected result:** One cell per 0.12 s (0.24 s on water), the turn time counts down, a trap and the end of the time end the turn, the next player gets the turn and its own seconds.
+- **Actual result:** Passed on 14 Nov 2026 (8 checks, all PASS)
+
+### T26: Items and data tables
+
+- **Purpose:** Check the Map and Trap items and the arena and hero tables.
+- **Function tested:** `useMap`, `placeTrap`, `getArena`, `getCharacter`
+- **Input:** Use a map with and without one, place a trap twice with one trap, read arenas 0 to 4 and Levski.
+- **Expected result:** The map reveals 4 cells and is spent, nothing happens without a map, the first trap is placed and owned, the second fails, arena 1 is Pliska, arena 3 is cold, bad ids return `nullptr`, Levski unlocks in era III.
+- **Actual result:** Passed on 14 Nov 2026 (11 checks, all PASS)

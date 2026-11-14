@@ -39,6 +39,10 @@ bool canEnter(const Maze& maze, const Player& player, int row, int col);
 // pickUpItem and updateSeen.
 bool tryMove(Maze& maze, Player& player, Direction direction);
 
+// Returns how many seconds one step out of the player's cell takes: 0.12, or 0.24 when the
+// player stands in WATER. Campaign and multiplayer walk at this speed.
+float getStepSeconds(const Maze& maze, const Player& player);
+
 // One frame of the campaign. heldDirection is -1 when no arrow key is held,
 // otherwise a Direction value. Adds deltaTime to the timer, moves the player one
 // cell every 0.12 s (0.24 s on water), handles being stuck, calls pickUpItem and
@@ -75,7 +79,7 @@ void useMap(const Maze& maze, Player& player);
 // playerIndex. Returns false if the player has no trap or the cell already has one.
 bool placeTrap(Maze& maze, Player& player, int playerIndex);
 
-// Moves the drawn position of the player (visualRow, visualCol) towards their real cell, 8
+// Moves the drawn position of the player (visualRow, visualCol) towards their real cell, 10
 // cells per second, so the hero slides from cell to cell instead of jumping. Call it once
 // per frame. It never changes row or col.
 void updateVisualPosition(Player& player, float deltaTime);
@@ -91,6 +95,17 @@ int calculateStars(int size, float seconds);
 // or 2 when the level is cold), then picks the next player who is not out,
 // skipping and wrapping around. A player with turnsToSkip loses that turn.
 void nextTurn(GameState& game);
+
+// Multiplayer: one frame of the current player's turn. heldDirection is -1 when no arrow key
+// is held, otherwise a Direction value. Adds deltaTime to the game time, takes it off the
+// turn time and moves the player one cell every getStepSeconds, with pickUpItem and
+// updateSeen after each move. Returns true when the turn is over: the turn time ran out or
+// the player sprang a trap. Reaching the exit is found by checkWinner.
+bool updateTurn(GameState& game, int heldDirection, float deltaTime);
+
+// Multiplayer: ends the current turn with nextTurn, counts the new turn and gives the next
+// player their turn seconds from getTurnSeconds.
+void startNextTurn(GameState& game);
 
 // Multiplayer: returns how many seconds a player gets for the turn. A bigger maze gives
 // more time: 8 + size / 5 seconds at the start (12 for size 20, 18 for size 50). The time

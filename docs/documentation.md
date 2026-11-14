@@ -186,6 +186,7 @@ A missing or broken file is not an error: the game starts with empty data or the
 | T18 to T20 | Save and load, destroying a maze, unlocks and Free Play |
 | T21 | The data of all nine levels |
 | T22 to T24 | Placing features, the multiplayer start (spawns, random exit, fuel and traps), turn time and the player count and hero checks |
+| T25 to T26 | The multiplayer turn rules, the Map and Trap items and the arena and hero tables |
 
 All tests pass. The QA test plan in `docs/qa_test_plan.md` lists the purpose, input, expected result and actual result for each test. Besides the unit tests, scripts generated every campaign maze size from 10 to 50 for all nine levels, and multiplayer games on every arena with 2, 3 and 4 players. In all of them the exit was reachable and the games ended with a winner.
 

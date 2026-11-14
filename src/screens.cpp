@@ -1652,9 +1652,7 @@ Screen checkMultiplayerEnd(GameState& game, UiState& ui, Screen otherwise) {
 // next player their seconds, then looks for a winner. Returns MP_RESULT when the game is
 // over, otherwise PASS_SCREEN.
 Screen endMultiplayerTurn(GameState& game, UiState& ui) {
-    nextTurn(game);
-    game.turnNumber++;
-    game.turnSecondsLeft = getTurnSeconds(game.turnNumber, game.playerCount, game.maze.size);
+    startNextTurn(game);
     return checkMultiplayerEnd(game, ui, PASS_SCREEN);
 }
 
@@ -1682,10 +1680,6 @@ Screen updateMultiplayerGame(GameState& game, UiState& ui, float deltaTime) {
         placeTrap(game.maze, player, game.currentPlayer);
     }
 
-    float previousTime = game.timeSeconds;
-    game.timeSeconds += deltaTime;
-    game.turnSecondsLeft -= deltaTime;
-
     int heldDirection = -1;
     if (IsKeyDown(KEY_UP)) {
         heldDirection = UP;
@@ -1696,24 +1690,13 @@ Screen updateMultiplayerGame(GameState& game, UiState& ui, float deltaTime) {
     } else if (IsKeyDown(KEY_RIGHT)) {
         heldDirection = RIGHT;
     }
-    float movementInterval = 0.12f;
-    if (game.maze.cells[player.row][player.col].tile == WATER) {
-        movementInterval = 0.24f;
+    // The rules of the turn are in game.cpp; this screen only reads the keys
+    bool isTurnOver = updateTurn(game, heldDirection, deltaTime);
+    Screen next = checkMultiplayerEnd(game, ui, PLAYING);
+    if (next != PLAYING) {
+        return next;
     }
-    int previousStep = static_cast<int>(previousTime / movementInterval);
-    int currentStep = static_cast<int>(game.timeSeconds / movementInterval);
-    bool hasSprungTrap = false;
-    if (heldDirection != -1 && previousStep != currentStep &&
-        tryMove(game.maze, player, static_cast<Direction>(heldDirection))) {
-        pickUpItem(game, player);
-        updateSeen(game.maze, player);
-        hasSprungTrap = player.turnsToSkip > 0;
-        Screen next = checkMultiplayerEnd(game, ui, PLAYING);
-        if (next != PLAYING) {
-            return next;
-        }
-    }
-    if (hasSprungTrap || game.turnSecondsLeft <= 0.0f) {
+    if (isTurnOver) {
         return endMultiplayerTurn(game, ui);
     }
     return PLAYING;
