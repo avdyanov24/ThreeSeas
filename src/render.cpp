@@ -218,6 +218,23 @@ void loadUiTextures(Textures& textures) {
     textures.hudPortraitFrame = loadPixelTexture(hud + "hud_portrait_frame.png");
     textures.hudTorchbarFull = loadPixelTexture(hud + "hud_torchbar_full.png");
     textures.hudTorchbarEmpty = loadPixelTexture(hud + "hud_torchbar_empty.png");
+    textures.hudTorchbarLow = loadPixelTexture(hud + "hud_torchbar_low.png");
+    textures.iconCrown = loadPixelTexture(art + "/01_ui/icons/icon_crown.png");
+
+    const char* const introFiles[LEVEL_COUNT] = {
+        "01_pliska/intro_background/pliska_intro",
+        "02_varbitsa_pass/intro_background/varbitsa_intro",
+        "03_preslav/intro_background/preslav_intro",
+        "04_tarnovo/intro_background/tarnovo_intro",
+        "05_cherven/intro_background/cherven_intro",
+        "06_klokotnitsa/intro_background/klokotnitsa_intro",
+        "07_koprivshtitsa/intro_background/koprivshtitsa_intro",
+        "08_plovdiv/intro_background/plovdiv_intro",
+        "09_shipka/intro_background/shipka_intro"};
+    for (int i = 0; i < LEVEL_COUNT; i++) {
+        textures.introBackgrounds[i] =
+            loadPixelTexture(art + "/03_levels/" + introFiles[i] + ".png");
+    }
 
     const char* const howToFiles[HOWTO_ICON_COUNT] = {
         "torch",   "torch_bar", "oil",         "map",   "door",  "water",
@@ -256,6 +273,9 @@ void unloadTextures(Textures& textures) {
     unloadOne(textures.hudPortraitFrame);
     unloadOne(textures.hudTorchbarFull);
     unloadOne(textures.hudTorchbarEmpty);
+    unloadOne(textures.hudTorchbarLow);
+    unloadOne(textures.iconCrown);
+    unloadMany(textures.introBackgrounds, LEVEL_COUNT);
     unloadMany(textures.floors, FLOOR_VARIANTS);
     unloadMany(textures.wallTops, WALL_TOP_VARIANTS);
     unloadMany(textures.wallFaces, WALL_FACE_VARIANTS);
@@ -491,16 +511,17 @@ static void drawFloor(const Maze& maze, const Textures& textures, int row, int c
     }
 }
 
-// Draws a closed door: set in a front face in a wall that runs east to west, or seen from
-// above in a wall that runs north to south
+// Draws a door: set in a front face in a wall that runs east to west, or seen from above in
+// a wall that runs north to south. isOpen draws the open frame, for a viewer who can pass.
 static void drawDoor(const Maze& maze, const Textures& textures, int row, int col, int x, int y,
-                     Color tint) {
+                     Color tint, bool isOpen) {
+    int frame = isOpen ? DOOR_FRAMES - 1 : 0;
     bool runsEastWest = isWallForTiling(maze, row, col - 1) && isWallForTiling(maze, row, col + 1);
     if (runsEastWest) {
         const Texture2D& top = textures.wallTops[hashCell(row, col, 4) % WALL_TOP_VARIANTS];
-        drawWallFront(textures, top, textures.doorFaces[0], x, y, false, false, false, tint);
+        drawWallFront(textures, top, textures.doorFaces[frame], x, y, false, false, false, tint);
     } else {
-        drawTile(textures.doorTops[0], x, y, 0.0f, tint);
+        drawTile(textures.doorTops[frame], x, y, 0.0f, tint);
         drawWallEdges(textures, x, y, false, true, true, tint);
     }
 }
@@ -535,13 +556,13 @@ static void drawShore(const Maze& maze, int row, int col, int x, int y, Color ti
 
 // Draws the ground of one cell: floor, water, door, exit or wall
 static void drawCellBase(const Maze& maze, const Textures& textures, int row, int col, int x,
-                         int y, Color tint) {
+                         int y, Color tint, bool canOpenDoors) {
     bool isBorder = !isInside(maze, row, col);
     Tile tile = isBorder ? WALL : maze.cells[row][col].tile;
     if (tile == WALL) {
         drawWall(maze, textures, row, col, x, y, tint);
     } else if (tile == DOOR) {
-        drawDoor(maze, textures, row, col, x, y, tint);
+        drawDoor(maze, textures, row, col, x, y, tint, canOpenDoors);
     } else if (tile == WATER && textures.liquid[0].id != 0) {
         int frame = static_cast<int>(GetTime() * 3.0) % LIQUID_FRAMES;
         drawTile(textures.liquid[frame], x, y, 0.0f, tint);
@@ -626,6 +647,8 @@ static Color getLitTint(const Player& viewer, int row, int col) {
 // Draws the maze as the viewer sees it
 void drawMaze(const GameState& game, const Player& viewer, const Textures& textures) {
     const Maze& maze = game.maze;
+    // A viewer with the key (or Ivan Asen II) sees every door open
+    bool canOpenDoors = viewer.hasKey || viewer.character == IVAN_ASEN;
     if (maze.cells == nullptr) {
         return;
     }
@@ -644,7 +667,7 @@ void drawMaze(const GameState& game, const Player& viewer, const Textures& textu
                 continue;
             }
             Color tint = view == LIT_CELL ? getLitTint(viewer, row, col) : SEEN_TINT;
-            drawCellBase(maze, textures, row, col, x, y, tint);
+            drawCellBase(maze, textures, row, col, x, y, tint, canOpenDoors);
             if (view == LIT_CELL) {
                 drawWallGlow(maze, textures, row, col, x, y);
             }
@@ -744,8 +767,18 @@ static void drawShadowText(const char* text, int x, int y, int fontSize, Color c
     DrawText(text, x, y, fontSize, color);
 }
 
+// Draws text with a thin black outline, for text on a bright background such as the lit bar.
+static void drawOutlinedText(const char* text, int x, int y, int fontSize, Color color) {
+    const Color outline = {0, 0, 0, 255};
+    DrawText(text, x - 1, y, fontSize, outline);
+    DrawText(text, x + 1, y, fontSize, outline);
+    DrawText(text, x, y - 1, fontSize, outline);
+    DrawText(text, x, y + 1, fontSize, outline);
+    DrawText(text, x, y, fontSize, color);
+}
+
 // Draws the torch bar at 2x: the empty bar, then the lit part of the full bar cut to the fuel
-// ratio (0 to 1). The lit part turns red when the torch is low.
+// ratio (0 to 1). The lit part uses the red art when the torch is low.
 static void drawTorchBar(const Textures& textures, int x, int y, float fuelRatio) {
     const float scale = 2.0f;
     const float barWidth = 231.0f;
@@ -760,9 +793,17 @@ static void drawTorchBar(const Textures& textures, int x, int y, float fuelRatio
     Rectangle source = {0.0f, 0.0f, litWidth, barHeight};
     Rectangle destination = {static_cast<float>(x), static_cast<float>(y), litWidth * scale,
                              barHeight * scale};
-    Color tint = fuelRatio < 0.3f ? Color{255, 120, 100, 255} : WHITE;
-    DrawTexturePro(textures.hudTorchbarFull, source, destination, Vector2{0.0f, 0.0f}, 0.0f,
-                   tint);
+    // Below 30% the bar switches to the red low-fuel art
+    const Texture2D* litBar = &textures.hudTorchbarFull;
+    Color tint = WHITE;
+    if (fuelRatio < 0.3f) {
+        if (textures.hudTorchbarLow.id != 0) {
+            litBar = &textures.hudTorchbarLow;
+        } else {
+            tint = Color{255, 120, 100, 255};
+        }
+    }
+    DrawTexturePro(*litBar, source, destination, Vector2{0.0f, 0.0f}, 0.0f, tint);
 }
 
 // Draws an inventory slot with a picture and an optional count (-1 draws no count). A slot
@@ -793,49 +834,47 @@ void drawHud(const GameState& game, const Player& viewer, const Textures& textur
     DrawRectangle(0, 0, screenWidth, HUD_HEIGHT, Color{18, 14, 20, 255});
     DrawRectangle(0, HUD_HEIGHT - 3, screenWidth, 3, Color{110, 78, 40, 255});
 
-    // The flame beats faster and bigger when the torch is low
-    float flameSize = 40.0f;
-    if (fuelRatio < 0.3f) {
-        flameSize += 5.0f * sinf(static_cast<float>(GetTime()) * 10.0f);
-    }
-    drawPicture(textures.hudFlame, 28.0f - flameSize / 2.0f, 44.0f - flameSize / 2.0f,
-                flameSize, flameSize, WHITE);
-    drawTorchBar(textures, 56, 12, fuelRatio);
+    // The torch bar has its own flame, so there is no second one next to it
+    drawTorchBar(textures, 8, 12, fuelRatio);
     const char* fuelText = TextFormat("%d / %d", static_cast<int>(viewer.fuel + 0.5f),
                                       static_cast<int>(viewer.maxFuel + 0.5f));
-    drawShadowText(fuelText, 56 + (462 - MeasureText(fuelText, 20)) / 2, 33, 20, RAYWHITE);
+    drawOutlinedText(fuelText, 8 + (462 - MeasureText(fuelText, 20)) / 2, 33, 20, RAYWHITE);
 
-    drawPicture(textures.hudTimer, 530.0f, 24.0f, 40.0f, 40.0f, WHITE);
+    drawPicture(textures.hudTimer, 482.0f, 24.0f, 40.0f, 40.0f, WHITE);
     const char* timeText = "00:00";
     Color timeColor = RAYWHITE;
     if (game.isMultiplayer) {
         float secondsLeft = game.turnSecondsLeft > 0.0f ? game.turnSecondsLeft : 0.0f;
         timeText = TextFormat("%.1f s", secondsLeft);
         if (secondsLeft < 3.0f) {
-            timeColor = RED;
+            timeColor = Color{255, 96, 80, 255};
         }
     } else {
         int seconds = game.timeSeconds > 0.0f ? static_cast<int>(game.timeSeconds) : 0;
         timeText = TextFormat("%02d:%02d", seconds / 60, seconds % 60);
     }
-    drawShadowText(timeText, 578, 32, 26, timeColor);
+    drawShadowText(timeText, 530, 32, 26, timeColor);
 
-    drawSlot(textures, textures.hudMap, 668, viewer.maps, viewer.maps > 0);
-    drawSlot(textures, textures.hudKey, 736, -1, viewer.hasKey);
+    drawSlot(textures, textures.hudMap, 620, viewer.maps, viewer.maps > 0);
+    drawSlot(textures, textures.hudKey, 688, -1, viewer.hasKey);
     if (game.isMultiplayer) {
-        drawSlot(textures, textures.hudTrap, 804, viewer.traps, viewer.traps > 0);
+        drawSlot(textures, textures.hudTrap, 756, viewer.traps, viewer.traps > 0);
     }
 
     if (game.isMultiplayer) {
-        DrawText(viewer.name.c_str(), 884, 12, 24, GOLD);
-        DrawText(TextFormat("Turn %d", game.turnNumber), 884, 40, 20, RAYWHITE);
-        DrawText("Hold arrows  1: map  2: trap  Enter: done", 884, 66, 16, LIGHTGRAY);
+        DrawText(viewer.name.c_str(), 836, 12, 24, GOLD);
+        DrawText(TextFormat("Turn %d", game.turnNumber), 836, 40, 20, RAYWHITE);
+        DrawText("Hold arrows  1: map  2: trap  Enter: done", 836, 66, 16, LIGHTGRAY);
     } else {
         if (game.level != nullptr) {
-            DrawText(TextFormat("%s - %d", game.level->place.c_str(), game.level->year), 884,
-                     12, 24, GOLD);
+            // Cherven has no known year (0), so only its name is shown
+            const char* place = game.level->place.c_str();
+            if (game.level->year != 0) {
+                place = TextFormat("%s - %d", place, game.level->year);
+            }
+            DrawText(place, 836, 12, 24, GOLD);
         }
-        DrawText("Arrows: move   M: map   Esc: pause", 884, 66, 16, LIGHTGRAY);
+        DrawText("Arrows: move   M: map   Esc: pause", 836, 66, 16, LIGHTGRAY);
     }
 
     float frameX = static_cast<float>(screenWidth - 84);

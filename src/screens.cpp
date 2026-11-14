@@ -37,7 +37,7 @@ const int RESULT_ITEM_COUNT = 2;
 const int RESULT_BUTTON_Y = 440;
 const char* const RESULT_ITEMS[RESULT_ITEM_COUNT] = {"Play again", "Back to map"};
 const int MP_RESULT_ITEM_COUNT = 2;
-const int MP_RESULT_BUTTON_Y = 440;
+const int MP_RESULT_BUTTON_Y = 560;
 const char* const MP_RESULT_ITEMS[MP_RESULT_ITEM_COUNT] = {"Rematch", "Menu"};
 const int ERA_COUNT = 3;
 const int PIN_RADIUS = 36;
@@ -1184,8 +1184,15 @@ void drawHowToPlay(const Textures& textures, const UiState& ui) {
 // the hero panel, the maze size input, a hint and the Back button.
 void drawLevelIntro(const Textures& textures, const UiState& ui) {
     const Level& level = *getLevel(ui.selectedLevel);
-    drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
-    drawDarkLayer();
+    // Each level has its own painting; it is dimmed so the panel stays readable
+    const Texture2D& painting = textures.introBackgrounds[level.id - 1];
+    if (painting.id != 0) {
+        drawScreenBackground(painting, Color{12, 10, 16, 255});
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 120});
+    } else {
+        drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
+        drawDarkLayer();
+    }
 
     const char* heading = level.place.c_str();
     if (level.year != 0) {
@@ -1774,16 +1781,30 @@ Screen updateMultiplayerResult(GameState& game, UiState& ui) {
 // Draws the multiplayer result: the winner and their hero, or a draw, and the Rematch
 // and Menu buttons.
 void drawMultiplayerResult(const GameState& game, const Textures& textures, const UiState& ui) {
-    drawMovingBackground(textures.multiplayerResult, Color{12, 10, 16, 255});
+    // The painting stays still so the winner can stand on its middle altar
+    drawScreenBackground(textures.multiplayerResult, Color{12, 10, 16, 255});
     drawEmbers();
 
     if (game.players != nullptr && game.winner >= 0 && game.winner < game.playerCount) {
         const Player& winner = game.players[game.winner];
         std::string heading = winner.name + " wins!";
-        drawTextPlate(heading.c_str(), SCREEN_WIDTH / 2, 120, 40, GOLD);
+        drawTextPlate(heading.c_str(), SCREEN_WIDTH / 2, 100, 40, GOLD);
         const Character* hero = getCharacter(winner.character);
         if (hero != nullptr) {
-            drawTextPlate(hero->name.c_str(), SCREEN_WIDTH / 2, 190, 28, RAYWHITE);
+            int heroWidth = MeasureText(hero->name.c_str(), 20);
+            DrawText(hero->name.c_str(), (SCREEN_WIDTH - heroWidth) / 2, 160, 20, LIGHTGRAY);
+        }
+        // The winner and the crown on the middle altar, the others on the side altars
+        drawIcon(textures.iconCrown, 608, 190, 64, 1.0f);
+        drawIcon(textures.heroes[winner.character].portrait, 576, 255, 128, 1.0f);
+        const int sideAltarX[2] = {360, 856};
+        int sideCount = 0;
+        for (int i = 0; i < game.playerCount && sideCount < 2; i++) {
+            if (i != game.winner) {
+                drawIcon(textures.heroes[game.players[i].character].portrait,
+                         sideAltarX[sideCount], 386, 64, 0.7f);
+                sideCount++;
+            }
         }
     } else if (game.winner == DRAW) {
         drawTextPlate("Draw: all torches went out", SCREEN_WIDTH / 2, 120, 40, RED);
