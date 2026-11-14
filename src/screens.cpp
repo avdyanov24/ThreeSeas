@@ -49,7 +49,7 @@ const int MP_RESULT_BUTTON_Y = 560;
 const char* const MP_RESULT_ITEMS[MP_RESULT_ITEM_COUNT] = {"Rematch", "Menu"};
 const int ERA_COUNT = 3;
 const int PIN_RADIUS = 36;
-const int PIN_SIZE = 64;
+const int PIN_SIZE = 72;  // the 36 px pin art at exactly 2x, so it stays sharp
 const int EMBER_COUNT = 40;
 const float SCREEN_FADE_SECONDS = 0.3f;
 const float END_BEAT_SECONDS = 0.8f;  // pause on the maze before the result screen
@@ -94,7 +94,6 @@ const float ERA_TAB_SIDE_SCALE = 0.8f;
 const float PIN_RING_FADE_SPEED = 4.0f;
 const float ERA_SPIN_SECONDS = 0.55f;
 const float PIN_FADE_SECONDS = 0.35f;
-const float PIN_SELECTED_GROWTH = 0.35f;
 const char* const ERA_TAB_LABELS[ERA_COUNT] = {"Era I", "Era II", "Era III"};
 
 // Tests whether the pointer is inside a button's screen rectangle.
@@ -1365,7 +1364,7 @@ void drawLevelIntro(const Textures& textures, const UiState& ui) {
 
 // Draws one campaign pin: grey when locked, orange when open, gold when finished,
 // with its number, place name, status and a white ring when it is selected. The
-// selected pin smoothly grows bigger than the others. alpha (0 to 1) fades the whole
+// selected pin gets a pulsing ring. alpha (0 to 1) fades the whole
 // pin in after an era switch.
 void drawCampaignPin(const Textures& textures, const UiState& ui, int pin, float alpha) {
     int levelId = getLevelIdOfPin(ui.selectedEra, pin);
@@ -1380,8 +1379,8 @@ void drawCampaignPin(const Textures& textures, const UiState& ui, int pin, float
 
     // selection goes from 0 (not selected) to 1 (selected) over a few frames
     float selection = ui.pinRingAlpha[pin];
-    float growth = 1.0f + PIN_SELECTED_GROWTH * selection;
-    int size = static_cast<int>(static_cast<float>(PIN_SIZE) * growth);
+    // The pin keeps its size (a whole-number scale); the ring shows the selection
+    int size = PIN_SIZE;
 
     int frame = static_cast<int>(GetTime() * 6.0) % PIN_FRAMES;
     const Texture2D* pinTexture = &textures.pinLocked[frame];
