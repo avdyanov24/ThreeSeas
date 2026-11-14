@@ -80,11 +80,15 @@ static void startMultiplayerGame(GameState& game, const UiState& ui, Level& aren
 }
 
 // Plays the sounds the screens asked for this frame, the turn chime when the pass screen
-// opens, and keeps the torch crackle looping while a torch burns in the game. Everything
-// follows the Sound setting. Returns nothing.
+// opens, keeps the ambience looping (menu or game volume) and plays the low-fuel heartbeat.
+// Everything follows the Sound setting and the volume sliders. Returns nothing.
 static void playFrameSounds(Sounds& sounds, UiState& ui, const GameState& game, Screen screen,
-                            Screen previousScreen) {
+                            Screen previousScreen, float deltaTime) {
     setSoundEnabled(sounds, ui.settings.isSoundOn);
+    setEffectsVolume(sounds, static_cast<float>(ui.settings.effectsVolume) / MAX_VOLUME);
+    bool isInGame = screen == PLAYING || screen == PAUSED || screen == PASS_SCREEN;
+    int musicVolume = isInGame ? ui.settings.gameMusicVolume : ui.settings.menuMusicVolume;
+    updateAmbience(sounds, static_cast<float>(musicVolume) / MAX_VOLUME);
     if (screen == PASS_SCREEN && previousScreen != PASS_SCREEN) {
         ui.soundRequests[SOUND_TURN_CHIME] = true;
     }
@@ -95,14 +99,24 @@ static void playFrameSounds(Sounds& sounds, UiState& ui, const GameState& game, 
         }
     }
 
-    bool isTorchBurning = ui.settings.isSoundOn && screen == PLAYING &&
-                          game.players != nullptr && !game.players[game.currentPlayer].isOut;
-    bool isCrackling = isSoundPlaying(sounds, SOUND_TORCH_CRACKLE);
-    if (isTorchBurning && !isCrackling) {
-        // The crackle is short, so it starts again whenever it ends
-        playSound(sounds, SOUND_TORCH_CRACKLE);
-    } else if (!isTorchBurning && isCrackling) {
-        stopSound(sounds, SOUND_TORCH_CRACKLE);
+    // Below 30% fuel a heartbeat starts. danger goes from 0 (30% fuel) to 1 (empty), and
+    // the beat gets faster (60 to 130 a minute) and louder with it.
+    float danger = 0.0f;
+    if (screen == PLAYING && game.players != nullptr && game.winner == NO_WINNER) {
+        const Player& player = game.players[game.currentPlayer];
+        float fuelRatio = player.maxFuel > 0.0f ? player.fuel / player.maxFuel : 0.0f;
+        if (!player.isOut && fuelRatio < 0.3f) {
+            danger = 1.0f - fuelRatio / 0.3f;
+        }
+    }
+    if (danger <= 0.0f) {
+        ui.heartbeatSeconds = 0.0f;
+        return;
+    }
+    ui.heartbeatSeconds -= deltaTime;
+    if (ui.heartbeatSeconds <= 0.0f) {
+        playSoundAtLoudness(sounds, SOUND_HEARTBEAT, 0.4f + 0.4f * danger);
+        ui.heartbeatSeconds = 60.0f / (60.0f + 70.0f * danger);
     }
 }
 
@@ -150,7 +164,7 @@ int main() {
         if (ui.isExitRequested) {
             break;
         }
-        playFrameSounds(sounds, ui, game, screen, previousScreen);
+        playFrameSounds(sounds, ui, game, screen, previousScreen, deltaTime);
 
         BeginDrawing();
         ClearBackground(BLACK);

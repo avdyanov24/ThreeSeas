@@ -4,12 +4,15 @@
 #define SOUND_DIR "assets/sounds/"
 #endif
 
-// Loads every sound from SOUND_DIR and returns them enabled.
+// Loads every sound from SOUND_DIR and returns them enabled at full effects volume.
 Sounds loadSounds() {
     Sounds sounds = {};
     sounds.isEnabled = true;
+    sounds.effectsVolume = 1.0f;
+    sounds.ambience = LoadMusicStream(SOUND_DIR "dungeon_pulse.wav");
+    sounds.ambience.looping = true;
     sounds.footstep = LoadSound(SOUND_DIR "footstep.wav");
-    sounds.torchCrackle = LoadSound(SOUND_DIR "torch_crackle.wav");
+    sounds.heartbeat = LoadSound(SOUND_DIR "heartbeat.wav");
     sounds.lowTorch = LoadSound(SOUND_DIR "torch_low.wav");
     sounds.pickup = LoadSound(SOUND_DIR "pickup.wav");
     sounds.doorUnlock = LoadSound(SOUND_DIR "door_unlock.wav");
@@ -27,8 +30,8 @@ static bool getSound(const Sounds& sounds, SoundId id, Sound& sound) {
         case SOUND_FOOTSTEP:
             sound = sounds.footstep;
             return true;
-        case SOUND_TORCH_CRACKLE:
-            sound = sounds.torchCrackle;
+        case SOUND_HEARTBEAT:
+            sound = sounds.heartbeat;
             return true;
         case SOUND_LOW_TORCH:
             sound = sounds.lowTorch;
@@ -59,10 +62,17 @@ static bool getSound(const Sounds& sounds, SoundId id, Sound& sound) {
     }
 }
 
-// Plays the sound for id unless sounds are disabled or id is invalid.
+// Plays the sound for id at full loudness.
 void playSound(const Sounds& sounds, SoundId id) {
+    playSoundAtLoudness(sounds, id, 1.0f);
+}
+
+// Plays the sound for id, scaled by the effects volume and loudness, unless sounds are
+// disabled or id is invalid.
+void playSoundAtLoudness(const Sounds& sounds, SoundId id, float loudness) {
     Sound sound = {};
     if (sounds.isEnabled && getSound(sounds, id, sound)) {
+        SetSoundVolume(sound, sounds.effectsVolume * loudness);
         PlaySound(sound);
     }
 }
@@ -81,15 +91,36 @@ bool isSoundPlaying(const Sounds& sounds, SoundId id) {
     return getSound(sounds, id, sound) && IsSoundPlaying(sound);
 }
 
-// Sets whether playSound is allowed to play sounds.
+// Sets whether sounds and the ambience are allowed to play.
 void setSoundEnabled(Sounds& sounds, bool isEnabled) {
     sounds.isEnabled = isEnabled;
 }
 
-// Unloads every sound and clears the Sounds value.
+// Stores the effects volume, kept between 0 and 1.
+void setEffectsVolume(Sounds& sounds, float volume) {
+    if (volume < 0.0f) {
+        volume = 0.0f;
+    } else if (volume > 1.0f) {
+        volume = 1.0f;
+    }
+    sounds.effectsVolume = volume;
+}
+
+// Starts the ambience if needed, sets its volume (0 when sounds are off) and feeds the
+// stream so it keeps playing.
+void updateAmbience(Sounds& sounds, float volume) {
+    if (!IsMusicStreamPlaying(sounds.ambience)) {
+        PlayMusicStream(sounds.ambience);
+    }
+    SetMusicVolume(sounds.ambience, sounds.isEnabled ? volume : 0.0f);
+    UpdateMusicStream(sounds.ambience);
+}
+
+// Unloads every sound and the ambience and clears the Sounds value.
 void unloadSounds(Sounds& sounds) {
+    UnloadMusicStream(sounds.ambience);
     UnloadSound(sounds.footstep);
-    UnloadSound(sounds.torchCrackle);
+    UnloadSound(sounds.heartbeat);
     UnloadSound(sounds.lowTorch);
     UnloadSound(sounds.pickup);
     UnloadSound(sounds.doorUnlock);

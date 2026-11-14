@@ -48,7 +48,7 @@ enum Screen {
 };
 enum SoundId {
     SOUND_FOOTSTEP,
-    SOUND_TORCH_CRACKLE,
+    SOUND_HEARTBEAT,
     SOUND_LOW_TORCH,
     SOUND_PICKUP,
     SOUND_DOOR_UNLOCK,
@@ -138,9 +138,14 @@ struct WinRecord {
     int wins;
 };
 
+const int MAX_VOLUME = 10;  // volumes go from 0 (silent) to MAX_VOLUME
+
 struct Settings {
     bool isSoundOn;
     bool isFreePlay;
+    int menuMusicVolume;  // ambience in the menus, 0 to MAX_VOLUME
+    int gameMusicVolume;  // ambience while playing, 0 to MAX_VOLUME
+    int effectsVolume;    // every sound effect, 0 to MAX_VOLUME
 };
 
 // ---------- Screen state ----------
@@ -154,6 +159,7 @@ struct UiState {
     float resultSeconds;       // time of the level that just ended
     int resultStars;           // stars of the level that just ended, 0 when the torch went out
     bool isMouseActive;
+    float heartbeatSeconds;    // time until the next low-fuel heartbeat
     float endBeatSeconds;      // campaign: seconds since the exit or torch out, before RESULT
     float screenSeconds;       // seconds since the current screen opened, for animations
     bool isExitRequested;

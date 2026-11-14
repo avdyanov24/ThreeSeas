@@ -30,8 +30,11 @@ const int LOGO_WIDTH = 366;
 const int LOGO_HEIGHT = 144;
 const char* const MENU_ITEMS[MENU_ITEM_COUNT] = {
     "Campaign", "Multiplayer", "Leaderboard", "How to Play", "Settings", "Exit"};
-const int SETTINGS_ITEM_COUNT = 3;
-const int SETTINGS_BUTTON_Y = 300;
+const int SETTINGS_ROW_COUNT = 5;  // Sound, Free Play and three volume sliders
+const int SETTINGS_FIRST_ROW_Y = 220;
+const int SETTINGS_ROW_STEP = 54;
+const int SLIDER_X = 640;
+const int SLIDER_WIDTH = 220;
 const int PAUSE_ITEM_COUNT = 3;
 const int PAUSE_BUTTON_Y = 300;
 const char* const PAUSE_ITEMS[PAUSE_ITEM_COUNT] = {"Resume", "Restart", "Quit to map"};
@@ -1833,47 +1836,152 @@ void drawMultiplayerResult(const GameState& game, const Textures& textures, cons
     drawButtonMenu(textures, ui, MP_RESULT_ITEMS, MP_RESULT_ITEM_COUNT, MP_RESULT_BUTTON_Y);
 }
 
-// Handles the settings screen: switches Sound or Free Play and saves the settings.
-// Returns MAIN_MENU for Back or Esc, otherwise SETTINGS.
+// Returns the volume a settings row changes (rows 2 to 4), or nullptr for other rows.
+static int* getVolumeSetting(Settings& settings, int row) {
+    if (row == 2) {
+        return &settings.menuMusicVolume;
+    }
+    if (row == 3) {
+        return &settings.gameMusicVolume;
+    }
+    if (row == 4) {
+        return &settings.effectsVolume;
+    }
+    return nullptr;
+}
+
+// Returns the top of a settings row on the screen.
+static int getSettingsRowY(int row) {
+    return SETTINGS_FIRST_ROW_Y + row * SETTINGS_ROW_STEP;
+}
+
+// Handles the settings screen. Rows 0 and 1 switch Sound and Free Play, rows 2 to 4 are
+// volume sliders and item 5 is Back. Up/Down choose a row, Left/Right or Enter change it,
+// the mouse can click a switch or drag a slider. Every change is saved. Returns MAIN_MENU
+// for Back or Esc, otherwise SETTINGS.
 Screen updateSettings(UiState& ui) {
+    const int backItem = SETTINGS_ROW_COUNT;
     if (IsKeyPressed(KEY_ESCAPE)) {
         requestSound(ui, SOUND_CLICK);
         ui.selectedItem = 0;
         return MAIN_MENU;
     }
-    int choice = updateButtonMenu(ui, SETTINGS_ITEM_COUNT, SETTINGS_BUTTON_Y);
-    if (choice == 0) {
-        ui.settings.isSoundOn = !ui.settings.isSoundOn;
-        saveSettings(ui.settings);
-    } else if (choice == 1) {
-        ui.settings.isFreePlay = !ui.settings.isFreePlay;
-        saveSettings(ui.settings);
-    } else if (choice == 2) {
+
+    Vector2 pointer = GetMousePosition();
+    Vector2 mouseDelta = GetMouseDelta();
+    bool isMouseClick = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f || isMouseClick) {
+        ui.isMouseActive = true;
+    }
+    // A held mouse button keeps dragging the slider it started on
+    bool isDragging = IsMouseButtonDown(MOUSE_BUTTON_LEFT) && !isMouseClick &&
+                      getVolumeSetting(ui.settings, ui.selectedItem) != nullptr;
+    if (ui.isMouseActive && !isDragging) {
+        ui.selectedItem = -1;
+        for (int row = 0; row < SETTINGS_ROW_COUNT; row++) {
+            int rowY = getSettingsRowY(row);
+            if (pointer.x >= 380.0f && pointer.x <= 920.0f && pointer.y >= rowY - 12 &&
+                pointer.y <= rowY + 36) {
+                ui.selectedItem = row;
+            }
+        }
+        if (isPointerOverButton(pointer, BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH,
+                                BUTTON_HEIGHT)) {
+            ui.selectedItem = backItem;
+        }
+    }
+
+    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_DOWN)) {
+        requestSound(ui, SOUND_CLICK);
+        ui.isMouseActive = false;
+        ui.selectedItem =
+            moveSelection(ui.selectedItem, IsKeyPressed(KEY_UP) ? -1 : 1, SETTINGS_ROW_COUNT + 1);
+        return SETTINGS;
+    }
+
+    int step = 0;
+    if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) {
+        step = -1;
+    } else if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) {
+        step = 1;
+    }
+    bool isPressed = IsKeyPressed(KEY_ENTER) || (isMouseClick && ui.selectedItem >= 0);
+    bool hasChanged = false;
+
+    int* volume = getVolumeSetting(ui.settings, ui.selectedItem);
+    if (volume != nullptr) {
+        int value = *volume + step;
+        if (ui.isMouseActive && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+            // The value follows the pointer along the slider bar
+            float part = (pointer.x - SLIDER_X) / static_cast<float>(SLIDER_WIDTH);
+            value = static_cast<int>(part * MAX_VOLUME + 0.5f);
+        }
+        value = value < 0 ? 0 : (value > MAX_VOLUME ? MAX_VOLUME : value);
+        hasChanged = value != *volume;
+        *volume = value;
+    } else if ((ui.selectedItem == 0 || ui.selectedItem == 1) && (step != 0 || isPressed)) {
+        if (ui.selectedItem == 0) {
+            ui.settings.isSoundOn = !ui.settings.isSoundOn;
+        } else {
+            ui.settings.isFreePlay = !ui.settings.isFreePlay;
+        }
+        hasChanged = true;
+    } else if (ui.selectedItem == backItem && isPressed) {
+        requestSound(ui, SOUND_CLICK);
         ui.selectedItem = 0;
         return MAIN_MENU;
+    }
+
+    if (hasChanged) {
+        requestSound(ui, SOUND_CLICK);
+        saveSettings(ui.settings);
     }
     return SETTINGS;
 }
 
-// Draws the settings screen: the heading, the Sound, Free Play and Back buttons, and a
-// note about Free Play.
+// Draws the settings screen: the Sound and Free Play switches, three volume sliders, a
+// note about Free Play and Back. The chosen row has a ">" marker and gold text.
 void drawSettings(const Textures& textures, const UiState& ui) {
     drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
     drawDarkLayer();
 
-    drawPanel(380, 150, 520, 450);
-    int headingWidth = MeasureText("Settings", 38);
-    DrawText("Settings", (SCREEN_WIDTH - headingWidth) / 2, 200, 38, GOLD);
+    drawPanel(340, 120, 600, 440);
+    int headingWidth = MeasureText("Settings", 40);
+    DrawText("Settings", (SCREEN_WIDTH - headingWidth) / 2, 150, 40, GOLD);
 
-    // TextFormat reuses its buffers, so each label is kept in its own variable first
-    const char* soundLabel = TextFormat("Sound: %s", ui.settings.isSoundOn ? "On" : "Off");
-    const char* freePlayLabel =
-        TextFormat("Free Play: %s", ui.settings.isFreePlay ? "On" : "Off");
-    const char* const labels[SETTINGS_ITEM_COUNT] = {soundLabel, freePlayLabel, "Back"};
-    drawButtonMenu(textures, ui, labels, SETTINGS_ITEM_COUNT, SETTINGS_BUTTON_Y);
+    const char* const labels[SETTINGS_ROW_COUNT] = {"Sound", "Free Play", "Menu music",
+                                                    "Game music", "Effects"};
+    Settings settings = ui.settings;
+    for (int row = 0; row < SETTINGS_ROW_COUNT; row++) {
+        int y = getSettingsRowY(row);
+        bool isFocused = ui.selectedItem == row;
+        if (isFocused) {
+            DrawText(">", 380, y, 30, GOLD);
+        }
+        DrawText(labels[row], 410, y, 30, isFocused ? GOLD : RAYWHITE);
 
-    drawTextPlate("Free Play: all open, nothing saved.", SCREEN_WIDTH / 2, 555, 20,
-                  LIGHTGRAY);
+        const int* volume = getVolumeSetting(settings, row);
+        if (volume == nullptr) {
+            bool isOn = row == 0 ? settings.isSoundOn : settings.isFreePlay;
+            DrawText(isOn ? "On" : "Off", SLIDER_X, y, 30, isOn ? GOLD : GRAY);
+            continue;
+        }
+        // The slider: a dark bar, a gold part for the volume and a knob at its end
+        int fillWidth = SLIDER_WIDTH * *volume / MAX_VOLUME;
+        Color fill = settings.isSoundOn ? GOLD : GRAY;
+        DrawRectangle(SLIDER_X, y + 10, SLIDER_WIDTH, 10, Color{40, 32, 36, 255});
+        DrawRectangle(SLIDER_X, y + 10, fillWidth, 10, fill);
+        DrawRectangleLines(SLIDER_X, y + 10, SLIDER_WIDTH, 10, Color{110, 78, 40, 255});
+        DrawRectangle(SLIDER_X + fillWidth - 5, y + 2, 10, 26, isFocused ? RAYWHITE : fill);
+        DrawText(TextFormat("%d", *volume), SLIDER_X + SLIDER_WIDTH + 20, y, 30,
+                 isFocused ? GOLD : RAYWHITE);
+    }
+
+    const char* note = "Free Play: all open, nothing saved.";
+    DrawText(note, (SCREEN_WIDTH - MeasureText(note, 20)) / 2, 500, 20, LIGHTGRAY);
+
+    drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
+                    ui.selectedItem == SETTINGS_ROW_COUNT, false, textures);
 }
 
 // Reads input and runs the logic of the current screen. Returns the screen to show

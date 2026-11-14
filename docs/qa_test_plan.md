@@ -207,3 +207,11 @@
 - **Input:** Use a map with and without one, place a trap twice with one trap, read arenas 0 to 4 and Levski.
 - **Expected result:** The map reveals 4 cells and is spent, nothing happens without a map, the first trap is placed and owned, the second fails, arena 1 is Pliska, arena 3 is cold, bad ids return `nullptr`, Levski unlocks in era III.
 - **Actual result:** Passed on 14 Nov 2026 (11 checks, all PASS)
+
+### T27: Settings and volumes
+
+- **Purpose:** Check that the switches and the three volume sliders are saved and loaded.
+- **Function tested:** `saveSettings`, `loadSettings`
+- **Input:** Load with no file; save Sound off and volumes 0, 10 and 3; load a file with volumes 11, -1 and 7.
+- **Expected result:** Defaults 5, 4 and 8 without a file; the saved values load back; values outside 0 to 10 are ignored and keep their default.
+- **Actual result:** Passed on 14 Nov 2026 (4 checks, all PASS)

@@ -177,6 +177,9 @@ Settings loadSettings() {
     Settings settings;
     settings.isSoundOn = true;
     settings.isFreePlay = false;
+    settings.menuMusicVolume = 5;
+    settings.gameMusicVolume = 4;
+    settings.effectsVolume = 8;
 
     std::ifstream input("save/settings.txt");
     if (!input.is_open()) {
@@ -194,6 +197,18 @@ Settings loadSettings() {
             continue;
         }
         if (lineStream >> extra) {
+            continue;
+        }
+        // Volumes go from 0 to MAX_VOLUME, the switches are 0 or 1
+        bool isVolume = word == "menumusic" || word == "gamemusic" || word == "effects";
+        if (isVolume && value >= 0 && value <= MAX_VOLUME) {
+            if (word == "menumusic") {
+                settings.menuMusicVolume = value;
+            } else if (word == "gamemusic") {
+                settings.gameMusicVolume = value;
+            } else {
+                settings.effectsVolume = value;
+            }
             continue;
         }
         if (value != 0 && value != 1) {
@@ -220,6 +235,9 @@ bool saveSettings(const Settings& settings) {
 
     output << "sound " << (settings.isSoundOn ? 1 : 0) << '\n';
     output << "freeplay " << (settings.isFreePlay ? 1 : 0) << '\n';
+    output << "menumusic " << settings.menuMusicVolume << '\n';
+    output << "gamemusic " << settings.gameMusicVolume << '\n';
+    output << "effects " << settings.effectsVolume << '\n';
 
     return true;
 }

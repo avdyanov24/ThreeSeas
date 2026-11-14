@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cmath>
 #include <cstdio>
+#include <fstream>
 
 #include "game.h"
 #include "maze.h"
@@ -1029,6 +1030,37 @@ void testItemsAndData(int& failures) {
           getCharacter(LEVSKI) != nullptr && getCharacter(LEVSKI)->era == 3, failures);
 }
 
+// Checks that the settings and the three volumes are saved and loaded, and that a
+// missing file or a volume out of range gives the defaults.
+void testSettingsAndVolumes(int& failures) {
+    std::remove("save/settings.txt");
+    Settings settings = loadSettings();
+    check("T27 a missing file gives the default volumes",
+          settings.menuMusicVolume == 5 && settings.gameMusicVolume == 4 &&
+              settings.effectsVolume == 8 && settings.isSoundOn && !settings.isFreePlay,
+          failures);
+
+    settings.isSoundOn = false;
+    settings.menuMusicVolume = 0;
+    settings.gameMusicVolume = 10;
+    settings.effectsVolume = 3;
+    check("T27 settings save successfully", saveSettings(settings), failures);
+    Settings loaded = loadSettings();
+    check("T27 saved volumes load back",
+          loaded.menuMusicVolume == 0 && loaded.gameMusicVolume == 10 &&
+              loaded.effectsVolume == 3 && !loaded.isSoundOn,
+          failures);
+
+    std::ofstream broken("save/settings.txt");
+    broken << "menumusic 11\neffects -1\ngamemusic 7\n";
+    broken.close();
+    loaded = loadSettings();
+    check("T27 volumes out of range are ignored",
+          loaded.menuMusicVolume == 5 && loaded.effectsVolume == 8 && loaded.gameMusicVolume == 7,
+          failures);
+    std::remove("save/settings.txt");
+}
+
 // Runs every test and returns 0 only if every check passed.
 int main() {
     int failures = 0;
@@ -1060,6 +1092,7 @@ int main() {
     testTurnTimeAndSetup(failures);
     testTurnRules(failures);
     testItemsAndData(failures);
+    testSettingsAndVolumes(failures);
 
     if (failures == 0) {
         std::cout << "All tests passed\n";

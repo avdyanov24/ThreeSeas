@@ -20,8 +20,9 @@ int loadWins(WinRecord records[], int maxCount);
 // Adds 1 win for the player. Returns false if writing failed.
 bool addWin(const std::string& name);
 
-// Reads save/settings.txt. A missing or broken file gives the defaults
-// (sound on, Free Play off).
+// Reads save/settings.txt. A missing or broken file gives the defaults (sound on,
+// Free Play off, menu music 5, game music 4, effects 8). Volumes outside 0 to
+// MAX_VOLUME are ignored.
 Settings loadSettings();
 
 // Writes save/settings.txt. Returns false if writing failed.

@@ -185,4 +185,4 @@ A school project ("Labyrinth", C++, 2026).
 
 - Pixel art generated with ChatGPT and post-processed with Python.
 - Graphics and input: [raylib](https://www.raylib.com/) (zlib license).
-- Sounds: 10 sound effects generated for this project (CC0, public domain). Font: raylib default font.
+- Sounds: 10 sound effects, the "Dungeon Pulse" ambience and the low-fuel heartbeat, all generated for this project (CC0, public domain). Font: raylib default font.
