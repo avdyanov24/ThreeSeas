@@ -118,4 +118,14 @@ float getTurnSeconds(int turnNumber, int playerCount, int mazeSize);
 // same round. Leaves NO_WINNER if the game goes on.
 void checkWinner(GameState& game);
 
+// Starts the tutorial: the level 1 look, the fixed tutorial maze and one player with
+// the given name and hero and 60 fuel (enough to read every message).
+void startTutorial(GameState& game, const std::string& name, CharacterId hero);
+
+// Returns the tutorial step after this frame. Each step waits for one thing: 0 walk,
+// 1 take the oil, 2 take the map, 3 use the map, 4 take the key, 5 pass the door,
+// 6 walk past the trap, 7 reach the exit. Reaching the exit gives TUTORIAL_DONE_STEP
+// from any step. Steps that are already done are skipped.
+int getTutorialStep(const GameState& game, int step);
+
 #endif  // GAME_H

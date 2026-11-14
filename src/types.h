@@ -6,6 +6,8 @@
 // ---------- Constants ----------
 
 const int MIN_CAMPAIGN_SIZE = 10;
+const int TUTORIAL_SIZE = 10;      // the tutorial maze is always 10 x 10
+const int TUTORIAL_DONE_STEP = 8;  // tutorial steps go from 0 to this one (exit reached)
 const int MIN_MULTIPLAYER_SIZE = 20;
 const int MAX_SIZE = 50;
 const int MIN_PLAYERS = 2;
@@ -161,6 +163,9 @@ struct UiState {
     int resultStars;           // stars of the level that just ended, 0 when the torch went out
     bool isMouseActive;
     float heartbeatSeconds;    // time until the next low-fuel heartbeat
+    bool isTutorial;           // the game being played is the tutorial maze
+    int tutorialStep;          // 0 to TUTORIAL_DONE_STEP
+    int howToPage;             // How to Play: 0 campaign, 1 multiplayer, 2 heroes
     float endBeatSeconds;      // campaign: seconds since the exit or torch out, before RESULT
     float screenSeconds;       // seconds since the current screen opened, for animations
     bool isExitRequested;

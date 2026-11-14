@@ -277,3 +277,47 @@ void placeFeatures(Maze& maze, const Level& level) {
     scatterOnFloor(maze, OIL, false, getAmount(maze.size, level.oilPer100), 0);
     scatterOnFloor(maze, MAP_ITEM, false, maze.size * maze.size / 300 + 1, 0);
 }
+
+// Builds the tutorial maze from a fixed picture of the layout.
+bool buildTutorialMaze(Maze& maze) {
+    if (maze.size != TUTORIAL_SIZE || maze.cells == nullptr) {
+        return false;
+    }
+    // # wall, . floor, O oil, M map, K key, D locked door, T hidden trap, E exit
+    const char* const layout[TUTORIAL_SIZE] = {
+        ".....O....",
+        "#########.",
+        "...M......",
+        ".#########",
+        ".......K..",
+        "#########.",
+        ".......D..",
+        ".T......##",
+        ".#########",
+        "E#########"};
+    for (int row = 0; row < TUTORIAL_SIZE; row++) {
+        for (int col = 0; col < TUTORIAL_SIZE; col++) {
+            Cell& cell = maze.cells[row][col];
+            char mark = layout[row][col];
+            cell.tile = FLOOR;
+            cell.item = NO_ITEM;
+            cell.trapOwner = NO_TRAP;
+            if (mark == '#') {
+                cell.tile = WALL;
+            } else if (mark == 'D') {
+                cell.tile = DOOR;
+            } else if (mark == 'E') {
+                cell.tile = EXIT;
+            } else if (mark == 'O') {
+                cell.item = OIL;
+            } else if (mark == 'M') {
+                cell.item = MAP_ITEM;
+            } else if (mark == 'K') {
+                cell.item = KEY;
+            } else if (mark == 'T') {
+                cell.trapOwner = LEVEL_TRAP;
+            }
+        }
+    }
+    return true;
+}

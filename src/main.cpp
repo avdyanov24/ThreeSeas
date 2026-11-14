@@ -38,6 +38,19 @@ static void startCampaignLevel(GameState& game, const UiState& ui, Textures& tex
     createPlayers(game, 1, names, characters);
 }
 
+// Starts the tutorial maze with the level 1 look, loading those textures when they
+// changed. Returns nothing.
+static void startTutorialGame(GameState& game, const UiState& ui, Textures& textures,
+                              int& loadedLevelId) {
+    if (loadedLevelId != 1) {
+        unloadTextures(textures);
+        textures = loadTextures(*getLevel(1));
+        loadUiTextures(textures);
+        loadedLevelId = 1;
+    }
+    startTutorial(game, ui.playerName, ui.characters[0]);
+}
+
 // Starts a multiplayer game on the arena picked in the setup: builds the arena as a level
 // (the look comes from a campaign level, the water and cold from the arena), loads its
 // textures when they changed, builds a new maze and creates the players. The first player
@@ -156,6 +169,8 @@ int main() {
                 startMultiplayerGame(game, ui, arenaLevel, textures, loadedLevelId);
                 screen = PASS_SCREEN;  // the first player takes the laptop
                 ui.screenSeconds = 0.0f;
+            } else if (ui.isTutorial) {
+                startTutorialGame(game, ui, textures, loadedLevelId);
             } else {
                 startCampaignLevel(game, ui, textures, loadedLevelId);
             }

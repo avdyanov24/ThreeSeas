@@ -1109,6 +1109,61 @@ void testRememberedPlayers(int& failures) {
     std::remove("save/last_setup.txt");
 }
 
+// Walks the tutorial player count cells in one direction, picking up items, and records
+// a win on the exit. Returns how many steps the tutorial is at afterwards.
+int walkTutorial(GameState& game, Direction direction, int count, int step) {
+    Player& player = game.players[0];
+    for (int i = 0; i < count; i++) {
+        if (tryMove(game.maze, player, direction)) {
+            pickUpItem(game, player);
+            updateSeen(game.maze, player);
+            if (hasReachedExit(game.maze, player)) {
+                game.winner = 0;
+            }
+        }
+        step = getTutorialStep(game, step);
+    }
+    return step;
+}
+
+// Checks the tutorial maze and that every step is reached in order on the way to the exit.
+void testTutorial(int& failures) {
+    Maze wrongSize = createMaze(12);
+    check("T29 only a 10 x 10 maze becomes the tutorial", !buildTutorialMaze(wrongSize),
+          failures);
+    destroyMaze(wrongSize);
+
+    GameState game = createEmptyGame();
+    startTutorial(game, "Ana", KRUM);
+    check("T29 the tutorial maze has its start, door and exit",
+          game.maze.size == TUTORIAL_SIZE && game.maze.cells[0][0].tile == FLOOR &&
+              game.maze.cells[6][7].tile == DOOR && game.maze.cells[9][0].tile == EXIT,
+          failures);
+    check("T29 the player starts at the start with 60 fuel",
+          game.players[0].row == 0 && game.players[0].col == 0 &&
+              game.players[0].fuel == 60.0f,
+          failures);
+    check("T29 the tutorial starts at step 0", getTutorialStep(game, 0) == 0, failures);
+
+    int step = walkTutorial(game, RIGHT, 9, 0);
+    check("T29 walking and taking the oil reach step 2", step == 2, failures);
+    step = walkTutorial(game, DOWN, 2, step);
+    step = walkTutorial(game, LEFT, 9, step);
+    check("T29 taking the map reaches step 3", step == 3, failures);
+    useMap(game.maze, game.players[0]);
+    step = getTutorialStep(game, step);
+    check("T29 reading the map reaches step 4", step == 4, failures);
+    step = walkTutorial(game, DOWN, 2, step);
+    step = walkTutorial(game, RIGHT, 9, step);
+    check("T29 taking the key reaches step 5", step == 5, failures);
+    step = walkTutorial(game, DOWN, 2, step);
+    step = walkTutorial(game, LEFT, 9, step);
+    check("T29 passing the door reaches step 6", step == 6, failures);
+    step = walkTutorial(game, DOWN, 3, step);
+    check("T29 the exit finishes the tutorial", step == TUTORIAL_DONE_STEP, failures);
+    destroyGame(game);
+}
+
 // Runs every test and returns 0 only if every check passed.
 int main() {
     int failures = 0;
@@ -1142,6 +1197,7 @@ int main() {
     testItemsAndData(failures);
     testSettingsAndVolumes(failures);
     testRememberedPlayers(failures);
+    testTutorial(failures);
 
     if (failures == 0) {
         std::cout << "All tests passed\n";

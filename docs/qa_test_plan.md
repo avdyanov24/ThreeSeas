@@ -223,3 +223,11 @@
 - **Input:** Remember Ana, Boris and Ana again, an invalid name, five more names, then forget one; save and load a 3-player setup.
 - **Expected result:** The last player is first and nobody is listed twice, invalid names are refused, at most 5 names are kept, a forgotten name is gone, the setup loads back with its names and heroes.
 - **Actual result:** Passed on 14 Nov 2026 (7 checks, all PASS)
+
+### T29: Tutorial
+
+- **Purpose:** Check the tutorial maze and that its steps follow the player to the exit.
+- **Function tested:** `buildTutorialMaze`, `startTutorial`, `getTutorialStep`
+- **Input:** Build the tutorial on a size 12 maze; start the tutorial and walk its whole path, reading the map on the way.
+- **Expected result:** Only a 10 x 10 maze is accepted; the maze has its start, door and exit; the player starts at (0, 0) with 60 fuel; the steps go 0, 2, 3, 4, 5, 6 and end at 8 on the exit.
+- **Actual result:** Passed on 14 Nov 2026 (10 checks, all PASS)

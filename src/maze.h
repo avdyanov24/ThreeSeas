@@ -48,4 +48,9 @@ void placeRandomExit(Maze& maze);
 // be finished without them. Level traps get trapOwner LEVEL_TRAP.
 void placeFeatures(Maze& maze, const Level& level);
 
+// Fills a TUTORIAL_SIZE maze with the fixed tutorial layout: a winding path from the
+// start (0, 0) past oil, a map, a key, a locked door and a hidden trap to the EXIT at
+// (9, 0). Returns false and changes nothing when the maze is not TUTORIAL_SIZE.
+bool buildTutorialMaze(Maze& maze);
+
 #endif  // MAZE_H

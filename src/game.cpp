@@ -1,5 +1,6 @@
 #include "game.h"
 
+#include "levels.h"
 #include "maze.h"
 
 // Returns an empty game with no winner yet.
@@ -443,4 +444,55 @@ void checkWinner(GameState& game) {
         game.winner = DRAW;
         return;
     }
+}
+
+// Builds the tutorial game with a fixed maze and generous fuel.
+void startTutorial(GameState& game, const std::string& name, CharacterId hero) {
+    startLevel(game, *getLevel(1), TUTORIAL_SIZE, false);
+    buildTutorialMaze(game.maze);
+    std::string names[1] = {name};
+    CharacterId heroes[1] = {hero};
+    createPlayers(game, 1, names, heroes);
+    game.players[0].maxFuel = 60.0f;
+    game.players[0].fuel = 60.0f;
+}
+
+// Returns true when the player has done what the tutorial step asks for.
+static bool isTutorialStepDone(const GameState& game, int step) {
+    const Player& player = game.players[0];
+    const Maze& maze = game.maze;
+    switch (step) {
+        case 0:
+            return player.row != 0 || player.col != 0;
+        case 1:
+            return maze.cells[0][5].item == NO_ITEM;
+        case 2:
+            return maze.cells[2][3].item == NO_ITEM;
+        case 3:
+            return player.maps == 0;
+        case 4:
+            return player.hasKey;
+        case 5:
+            return player.row > 6 || (player.row == 6 && player.col < 7);
+        case 6:
+            return player.row >= 8;
+        case 7:
+            return game.winner == 0;
+        default:
+            return true;
+    }
+}
+
+// Moves the tutorial on past every step that is already done.
+int getTutorialStep(const GameState& game, int step) {
+    if (game.players == nullptr || game.playerCount == 0) {
+        return step;
+    }
+    if (game.winner == 0) {
+        return TUTORIAL_DONE_STEP;
+    }
+    while (step < TUTORIAL_DONE_STEP && isTutorialStepDone(game, step)) {
+        step++;
+    }
+    return step;
 }
