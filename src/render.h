@@ -59,8 +59,8 @@ struct HeroTextures {
 // Every texture the drawing code needs for one level. Walls are built from a flat top
 // surface and a front face: the top fills a wall cell seen from above, and a wall with
 // open floor to its south shows the face below a thin strip of top. floorWeights says
-// how often each floor variant is drawn (they add up to 100). glowDecorMask has a bit
-// for each wall decoration that gives light, such as a torch. The liquid is water on
+// how often each floor variant is drawn (they add up to 100). isDecorGlowing says
+// which wall decorations give light, such as a torch. The liquid is water on
 // most levels and ice on Shipka; levels without it leave those textures empty.
 struct Textures {
     Texture2D titleScreen;
@@ -97,7 +97,7 @@ struct Textures {
     Texture2D wallTops[WALL_TOP_VARIANTS];
     Texture2D wallFaces[WALL_FACE_VARIANTS];
     Texture2D wallDecor[WALL_DECOR_VARIANTS];
-    int glowDecorMask;
+    bool isDecorGlowing[WALL_DECOR_VARIANTS];  // which wall decorations give light
     Color edgeDark;
     Color edgeLight;
     Texture2D liquid[LIQUID_FRAMES];
