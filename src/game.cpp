@@ -119,6 +119,14 @@ bool tryMove(Maze& maze, Player& player, Direction direction) {
     return true;
 }
 
+// Returns 0.24 seconds per step on water, otherwise 0.12.
+float getStepSeconds(const Maze& maze, const Player& player) {
+    if (maze.cells[player.row][player.col].tile == WATER) {
+        return 0.24f;
+    }
+    return 0.12f;
+}
+
 // Advances campaign time and fuel, and moves at the shared walking interval.
 void updateCampaign(GameState& game, int heldDirection, float deltaTime) {
     if (game.players == nullptr || game.playerCount == 0 || game.level == nullptr ||
@@ -146,10 +154,7 @@ void updateCampaign(GameState& game, int heldDirection, float deltaTime) {
         }
         return;
     }
-    float movementInterval = 0.12f;
-    if (game.maze.cells[player.row][player.col].tile == WATER) {
-        movementInterval = 0.24f;
-    }
+    float movementInterval = getStepSeconds(game.maze, player);
     int previousStep = static_cast<int>(previousTime / movementInterval);
     int currentStep = static_cast<int>(game.timeSeconds / movementInterval);
     if (heldDirection >= UP && heldDirection <= RIGHT && previousStep != currentStep) {
@@ -360,6 +365,37 @@ void nextTurn(GameState& game) {
         game.currentPlayer = index;
         break;
     }
+}
+
+// Counts down the turn, walks the current player and returns whether the turn is over.
+bool updateTurn(GameState& game, int heldDirection, float deltaTime) {
+    if (game.players == nullptr || game.playerCount == 0 || deltaTime <= 0.0f) {
+        return false;
+    }
+    Player& player = game.players[game.currentPlayer];
+    float previousTime = game.timeSeconds;
+    game.timeSeconds += deltaTime;
+    game.turnSecondsLeft -= deltaTime;
+
+    // A step happens each time the game time passes a whole number of steps
+    float stepSeconds = getStepSeconds(game.maze, player);
+    int previousStep = static_cast<int>(previousTime / stepSeconds);
+    int currentStep = static_cast<int>(game.timeSeconds / stepSeconds);
+    bool hasSprungTrap = false;
+    if (heldDirection >= UP && heldDirection <= RIGHT && previousStep != currentStep &&
+        tryMove(game.maze, player, static_cast<Direction>(heldDirection))) {
+        pickUpItem(game, player);
+        updateSeen(game.maze, player);
+        hasSprungTrap = player.turnsToSkip > 0;
+    }
+    return hasSprungTrap || game.turnSecondsLeft <= 0.0f;
+}
+
+// Passes the turn on and resets the turn timer for the next player.
+void startNextTurn(GameState& game) {
+    nextTurn(game);
+    game.turnNumber++;
+    game.turnSecondsLeft = getTurnSeconds(game.turnNumber, game.playerCount, game.maze.size);
 }
 
 // Returns the seconds of a turn: 8 + size / 5 at first, 1 less after every full round,
