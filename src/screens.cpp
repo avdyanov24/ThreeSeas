@@ -8,8 +8,6 @@
 #include "save.h"
 #include "validation.h"
 
-namespace {
-
 const int SCREEN_WIDTH = 1280;
 const int SCREEN_HEIGHT = 720;
 const Color ERROR_RED = {255, 96, 80, 255};
@@ -107,7 +105,7 @@ bool isPointerOverButton(Vector2 pointer, int x, int y, int width, int height) {
 
 // Draws button art into bounds without stretching its pixels unevenly: the left and right
 // ends keep their shape at the same scale as the height, only the plain middle gets wider.
-static void drawButtonArt(const Texture2D& texture, Rectangle bounds, Color tint) {
+void drawButtonArt(const Texture2D& texture, Rectangle bounds, Color tint) {
     float textureWidth = static_cast<float>(texture.width);
     float textureHeight = static_cast<float>(texture.height);
     float cap = static_cast<float>(BUTTON_CAP_WIDTH);
@@ -194,7 +192,7 @@ void drawTextPlate(const char* text, int centerX, int y, int fontSize, Color col
 
 // Draws the heading of a full screen: gold text on a plate, centred at the top. Every
 // screen uses it so all headings look the same.
-static void drawHeading(const char* text) {
+void drawHeading(const char* text) {
     drawTextPlate(text, SCREEN_WIDTH / 2, HEADING_Y, HEADING_SIZE, GOLD);
 }
 
@@ -1044,12 +1042,12 @@ Screen openNameEntry(UiState& ui) {
 
 // Returns the top of a row on the name entry screen: the remembered players first, then
 // the new-name box (row savedPlayerCount).
-static int getNameRowY(int row) {
+int getNameRowY(int row) {
     return NAME_FIRST_ROW_Y + row * NAME_ROW_STEP;
 }
 
 // Continues as name: remembers it as the last player and opens the main menu.
-static Screen chooseName(UiState& ui, const std::string& name) {
+Screen chooseName(UiState& ui, const std::string& name) {
     rememberPlayer(name);
     ui.playerName = name;
     ui.errorMessage = "";
@@ -1374,11 +1372,11 @@ void drawCampaignPin(const Textures& textures, const UiState& ui, int pin, float
     int size = PIN_SIZE;
 
     int frame = static_cast<int>(GetTime() * 6.0) % PIN_FRAMES;
-    const Texture2D* pinTexture = &textures.pinLocked[frame];
+    Texture2D pinTexture = textures.pinLocked[frame];
     if (isFinished) {
-        pinTexture = &textures.pinFinished[frame];
+        pinTexture = textures.pinFinished[frame];
     } else if (isOpen) {
-        pinTexture = &textures.pinOpen[frame];
+        pinTexture = textures.pinOpen[frame];
     }
     float ringAlpha = selection * alpha;
     if (ringAlpha > 0.0f) {
@@ -1388,7 +1386,7 @@ void drawCampaignPin(const Textures& textures, const UiState& ui, int pin, float
         DrawRing(center, outerRadius, outerRadius + 4.0f, 0.0f, 360.0f, 64,
                  Fade(RAYWHITE, (0.5f + 0.4f * (1.0f - pulse)) * ringAlpha));
     }
-    drawIcon(*pinTexture, static_cast<int>(center.x) - size / 2,
+    drawIcon(pinTexture, static_cast<int>(center.x) - size / 2,
              static_cast<int>(center.y) - size / 2, size, alpha);
 
     int labelX = static_cast<int>(center.x);
@@ -1641,15 +1639,14 @@ void drawResult(const GameState& game, const Textures& textures, const UiState& 
         }
 
         // The hero cheers on the floor left of the buttons, 4 times the sprite size
-        const Texture2D* cheer = textures.heroes[ui.characters[0]].win;
         int frame = static_cast<int>(GetTime() * 6.0) % HERO_FRAMES;
-        if (cheer[frame].id != 0) {
-            Rectangle source = {0.0f, 0.0f, static_cast<float>(cheer[frame].width),
-                                static_cast<float>(cheer[frame].height)};
+        Texture2D cheer = textures.heroes[ui.characters[0]].win[frame];
+        if (cheer.id != 0) {
+            Rectangle source = {0.0f, 0.0f, static_cast<float>(cheer.width),
+                                static_cast<float>(cheer.height)};
             Rectangle destination = {360.0f, 420.0f, source.width * 4.0f,
                                      source.height * 4.0f};
-            DrawTexturePro(cheer[frame], source, destination, Vector2{0.0f, 0.0f}, 0.0f,
-                           WHITE);
+            DrawTexturePro(cheer, source, destination, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
         }
 
         int seconds = static_cast<int>(ui.resultSeconds);
@@ -1910,22 +1907,35 @@ void drawMultiplayerResult(const GameState& game, const Textures& textures, cons
     drawButtonMenu(textures, ui, MP_RESULT_ITEMS, MP_RESULT_ITEM_COUNT, MP_RESULT_BUTTON_Y);
 }
 
-// Returns the volume a settings row changes (rows 2 to 4), or nullptr for other rows.
-static int* getVolumeSetting(Settings& settings, int row) {
+// Returns true for the settings rows that are volume sliders (rows 2 to 4).
+bool isVolumeRow(int row) {
+    return row >= 2 && row <= 4;
+}
+
+// Returns the volume shown on a slider row: 2 menu music, 3 game music, 4 effects.
+int getVolume(const Settings& settings, int row) {
     if (row == 2) {
-        return &settings.menuMusicVolume;
+        return settings.menuMusicVolume;
     }
     if (row == 3) {
-        return &settings.gameMusicVolume;
+        return settings.gameMusicVolume;
     }
-    if (row == 4) {
-        return &settings.effectsVolume;
+    return settings.effectsVolume;
+}
+
+// Stores value as the volume of a slider row: 2 menu music, 3 game music, 4 effects.
+void setVolume(Settings& settings, int row, int value) {
+    if (row == 2) {
+        settings.menuMusicVolume = value;
+    } else if (row == 3) {
+        settings.gameMusicVolume = value;
+    } else {
+        settings.effectsVolume = value;
     }
-    return nullptr;
 }
 
 // Returns the top of a settings row on the screen.
-static int getSettingsRowY(int row) {
+int getSettingsRowY(int row) {
     return SETTINGS_FIRST_ROW_Y + row * SETTINGS_ROW_STEP;
 }
 
@@ -1949,7 +1959,7 @@ Screen updateSettings(UiState& ui) {
     }
     // A held mouse button keeps dragging the slider it started on
     bool isDragging = IsMouseButtonDown(MOUSE_BUTTON_LEFT) && !isMouseClick &&
-                      getVolumeSetting(ui.settings, ui.selectedItem) != nullptr;
+                      isVolumeRow(ui.selectedItem);
     if (ui.isMouseActive && !isDragging) {
         ui.selectedItem = -1;
         for (int row = 0; row < SETTINGS_ROW_COUNT; row++) {
@@ -1982,17 +1992,17 @@ Screen updateSettings(UiState& ui) {
     bool isPressed = IsKeyPressed(KEY_ENTER) || (isMouseClick && ui.selectedItem >= 0);
     bool hasChanged = false;
 
-    int* volume = getVolumeSetting(ui.settings, ui.selectedItem);
-    if (volume != nullptr) {
-        int value = *volume + step;
+    if (isVolumeRow(ui.selectedItem)) {
+        int oldValue = getVolume(ui.settings, ui.selectedItem);
+        int value = oldValue + step;
         if (ui.isMouseActive && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
             // The value follows the pointer along the slider bar
             float part = (pointer.x - SLIDER_X) / static_cast<float>(SLIDER_WIDTH);
             value = static_cast<int>(part * MAX_VOLUME + 0.5f);
         }
         value = value < 0 ? 0 : (value > MAX_VOLUME ? MAX_VOLUME : value);
-        hasChanged = value != *volume;
-        *volume = value;
+        hasChanged = value != oldValue;
+        setVolume(ui.settings, ui.selectedItem, value);
     } else if ((ui.selectedItem == 0 || ui.selectedItem == 1 || ui.selectedItem == 5) &&
                (step != 0 || isPressed)) {
         if (ui.selectedItem == 0) {
@@ -2037,8 +2047,7 @@ void drawSettings(const Textures& textures, const UiState& ui) {
         }
         DrawText(labels[row], 410, y, 30, isFocused ? GOLD : RAYWHITE);
 
-        const int* volume = getVolumeSetting(settings, row);
-        if (volume == nullptr) {
+        if (!isVolumeRow(row)) {
             bool isOn = settings.isFullscreen;
             if (row == 0) {
                 isOn = settings.isSoundOn;
@@ -2049,13 +2058,14 @@ void drawSettings(const Textures& textures, const UiState& ui) {
             continue;
         }
         // The slider: a dark bar, a gold part for the volume and a knob at its end
-        int fillWidth = SLIDER_WIDTH * *volume / MAX_VOLUME;
+        int volume = getVolume(settings, row);
+        int fillWidth = SLIDER_WIDTH * volume / MAX_VOLUME;
         Color fill = settings.isSoundOn ? GOLD : GRAY;
         DrawRectangle(SLIDER_X, y + 10, SLIDER_WIDTH, 10, Color{40, 32, 36, 255});
         DrawRectangle(SLIDER_X, y + 10, fillWidth, 10, fill);
         DrawRectangleLines(SLIDER_X, y + 10, SLIDER_WIDTH, 10, Color{110, 78, 40, 255});
         DrawRectangle(SLIDER_X + fillWidth - 5, y + 2, 10, 26, isFocused ? RAYWHITE : fill);
-        DrawText(TextFormat("%d", *volume), SLIDER_X + SLIDER_WIDTH + 20, y, 30,
+        DrawText(TextFormat("%d", volume), SLIDER_X + SLIDER_WIDTH + 20, y, 30,
                  isFocused ? GOLD : RAYWHITE);
     }
 
@@ -2218,12 +2228,12 @@ Screen updateHowToPlay(GameState& game, UiState& ui) {
 
 // Draws one How to Play page of rules: an icon and a short line per row, each row
 // fading in a little after the one above.
-void drawHowToRules(const Texture2D* const icons[], const char* const lines[],
+void drawHowToRules(const Texture2D icons[], const char* const lines[],
                     const UiState& ui) {
     for (int i = 0; i < HOWTO_ROWS; i++) {
         float rowProgress = getProgress(ui.screenSeconds, 0.04f * static_cast<float>(i), 0.3f);
         int y = 148 + i * 45;
-        drawIcon(*icons[i], 190, y - 4, 32, rowProgress);
+        drawIcon(icons[i], 190, y - 4, 32, rowProgress);
         DrawText(lines[i], 244, y, 20, Fade(RAYWHITE, rowProgress));
     }
 }
@@ -2248,17 +2258,17 @@ void drawHowToPlay(const Textures& textures, const UiState& ui) {
     drawPanel(140, 128, 1000, 430);
 
     if (ui.howToPage == 0) {
-        const Texture2D* const icons[HOWTO_ROWS] = {
-            &textures.howTo[HOWTO_TORCH], &textures.howTo[HOWTO_TORCH_BAR],
-            &textures.howTo[HOWTO_OIL],   &textures.howTo[HOWTO_MAP],
-            &textures.key,                &textures.howTo[HOWTO_DOOR],
-            &textures.howTo[HOWTO_WATER], &textures.howTo[HOWTO_TRAP],
-            &textures.howTo[HOWTO_STARS]};
+        const Texture2D icons[HOWTO_ROWS] = {
+            textures.howTo[HOWTO_TORCH], textures.howTo[HOWTO_TORCH_BAR],
+            textures.howTo[HOWTO_OIL],   textures.howTo[HOWTO_MAP],
+            textures.key,                textures.howTo[HOWTO_DOOR],
+            textures.howTo[HOWTO_WATER], textures.howTo[HOWTO_TRAP],
+            textures.howTo[HOWTO_STARS]};
         drawHowToRules(icons, HOWTO_CAMPAIGN_TEXT, ui);
     } else if (ui.howToPage == 1) {
-        const Texture2D* icons[HOWTO_ROWS] = {};
+        Texture2D icons[HOWTO_ROWS] = {};
         for (int i = 0; i < HOWTO_ROWS; i++) {
-            icons[i] = &textures.howTo[HOWTO_MULTIPLAYER_ICONS[i]];
+            icons[i] = textures.howTo[HOWTO_MULTIPLAYER_ICONS[i]];
         }
         drawHowToRules(icons, HOWTO_MULTIPLAYER_TEXT, ui);
     } else {
@@ -2408,8 +2418,6 @@ Screen getNextScreen(Screen screen, GameState& game, UiState& ui, float deltaTim
 
     return screen;
 }
-
-}  // namespace
 
 // Reads input and runs the logic of the current screen. Returns the screen to show
 // next (the same one if nothing changed). Never draws.

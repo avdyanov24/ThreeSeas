@@ -240,7 +240,7 @@ void testWallAndLegalMovement(int& failures) {
 
 // Checks every field in the nine level records and getLevel's boundary behavior.
 void testLevelData(int& failures) {
-    static const Level expectedLevels[] = {
+    const Level expectedLevels[] = {
         {1,
          "Pliska",
          "First Bulgarian State",

@@ -35,10 +35,20 @@ const int FLOOR_WEIGHTS[LEVEL_COUNT][FLOOR_VARIANTS] = {
     {20, 20, 20, 20, 10, 4, 6, 0}, {20, 20, 20, 12, 4, 8, 10, 6}, {24, 24, 20, 10, 8, 6, 4, 4},
 };
 
-const int GLOW_DECOR_MASKS[LEVEL_COUNT] = {1, 0, 32, 8, 4, 4, 8, 136, 36};
+// For each level, which wall decorations give light (a torch or lantern)
+const bool GLOWING_DECOR[LEVEL_COUNT][WALL_DECOR_VARIANTS] = {
+    {true, false, false, false, false, false, false, false},
+    {false, false, false, false, false, false, false, false},
+    {false, false, false, false, false, true, false, false},
+    {false, false, false, true, false, false, false, false},
+    {false, false, true, false, false, false, false, false},
+    {false, false, true, false, false, false, false, false},
+    {false, false, false, true, false, false, false, false},
+    {false, false, false, true, false, false, false, true},
+    {false, false, true, false, false, true, false, false}};
 
 const Color FLOOR_DARKEN = {192, 192, 192, 255};
-const unsigned int DECAL_CHANCE = 7;
+const int DECAL_CHANCE = 7;  // percent of floor cells with a decal
 const int WALL_TOP_ROWS = 12;
 const int WALL_FACE_START = 6;
 const int WALL_FACE_ROWS = 20;
@@ -145,7 +155,9 @@ Textures loadTextures(const Level& level) {
     loadNumbered(textures.wallTops, WALL_TOP_VARIANTS, tiles + "_walltop");
     loadNumbered(textures.wallFaces, WALL_FACE_VARIANTS, tiles + "_wallface");
     loadNumbered(textures.wallDecor, WALL_DECOR_VARIANTS, tiles + "_walldecor");
-    textures.glowDecorMask = GLOW_DECOR_MASKS[level.id - 1];
+    for (int i = 0; i < WALL_DECOR_VARIANTS; i++) {
+        textures.isDecorGlowing[i] = GLOWING_DECOR[level.id - 1][i];
+    }
     loadEdgeColors(textures, tiles + "_walltop_01.png");
     if (entry.liquid != nullptr) {
         std::string liquid = tiles + "_" + entry.liquid;
@@ -312,15 +324,13 @@ enum CellView { UNKNOWN_CELL, SEEN_CELL, LIT_CELL };
 
 const Color SEEN_TINT = {76, 80, 108, 255};
 
-// Returns a repeatable pseudo-random number for a cell, so a cell always looks the same
-static unsigned int hashCell(int row, int col, int salt) {
-    unsigned int hash = static_cast<unsigned int>(row) * 73856093u;
-    hash ^= static_cast<unsigned int>(col) * 19349663u;
-    hash ^= static_cast<unsigned int>(salt) * 83492791u;
-    hash ^= hash >> 13;
-    hash *= 1274126177u;
-    hash ^= hash >> 16;
-    return hash;
+// Returns a repeatable "random" number from 0 to 99999 for a cell, so a cell always looks
+// the same. salt gives a different number for each use. The sine of a big number jumps
+// around a lot, so neighbouring cells get very different numbers.
+static int hashCell(int row, int col, int salt) {
+    float value = std::sin(row * 12.9898f + col * 78.233f + salt * 37.719f) * 43758.5453f;
+    float fraction = value - std::floor(value);  // the part after the decimal point (0 to 1)
+    return static_cast<int>(fraction * 100000.0f);
 }
 
 // Returns one axis of the camera origin: the viewer always in the middle, or the whole
@@ -373,11 +383,11 @@ static Color shade(Color color, Color tint) {
 }
 
 // Returns an index from weights that add up to 100, for a roll from 0 to 99
-static int pickWeighted(const int weights[], int count, unsigned int roll) {
+static int pickWeighted(const int weights[], int count, int roll) {
     int total = 0;
     for (int i = 0; i < count; i++) {
         total += weights[i];
-        if (static_cast<int>(roll) < total) {
+        if (roll < total) {
             return i;
         }
     }
@@ -456,7 +466,7 @@ static void drawWall(const Maze& maze, const Textures& textures, int row, int co
         return;
     }
     int decor = getWallDecor(maze, row, col);
-    unsigned int faceRoll = hashCell(row, col, 7) % 100;
+    int faceRoll = hashCell(row, col, 7) % 100;
     int faceIndex = pickWeighted(WALL_FACE_WEIGHTS, WALL_FACE_VARIANTS, faceRoll);
     const Texture2D& face = decor >= 0 ? textures.wallDecor[decor] : textures.wallFaces[faceIndex];
     drawWallFront(textures, top, face, x, y, !north, !east, !west, tint);
@@ -469,7 +479,7 @@ static void drawWallGlow(const Maze& maze, const Textures& textures, int row, in
         return;
     }
     int decor = getWallDecor(maze, row, col);
-    if (decor < 0 || ((textures.glowDecorMask >> decor) & 1) == 0) {
+    if (decor < 0 || !textures.isDecorGlowing[decor]) {
         return;
     }
     float phase = static_cast<float>(hashCell(row, col, 8) % 100);
@@ -713,23 +723,24 @@ void drawPlayerSeenBy(const GameState& game, const Player& viewer, const Player&
     bool isSliding = rowGap > 0.02f || rowGap < -0.02f || colGap > 0.02f || colGap < -0.02f;
     bool isMoving = isSliding || player.walkSeconds > 0.0f;
 
-    const Texture2D* frames = hero.idle;
+    // Pick the animation, then the frame of it that belongs to this moment
     double framesPerSecond = 5.0;
-    bool isMirrored = false;
-    if (player.stuckSeconds > 0.0f) {
-        frames = hero.stuck;
-    } else if (isMoving) {
+    if (isMoving && player.stuckSeconds <= 0.0f) {
         framesPerSecond = 8.0;  // two walk cycles a second, close to the walking pace
-        if (player.facing == UP) {
-            frames = hero.walkUp;
-        } else if (player.facing == DOWN) {
-            frames = hero.walkDown;
-        } else {
-            frames = hero.walkSide;
-            isMirrored = player.facing == LEFT;
-        }
     }
-    const Texture2D& sprite = frames[static_cast<int>(GetTime() * framesPerSecond) % HERO_FRAMES];
+    int frame = static_cast<int>(GetTime() * framesPerSecond) % HERO_FRAMES;
+    bool isMirrored = false;
+    Texture2D sprite = hero.idle[frame];
+    if (player.stuckSeconds > 0.0f) {
+        sprite = hero.stuck[frame];
+    } else if (isMoving && player.facing == UP) {
+        sprite = hero.walkUp[frame];
+    } else if (isMoving && player.facing == DOWN) {
+        sprite = hero.walkDown[frame];
+    } else if (isMoving) {
+        sprite = hero.walkSide[frame];
+        isMirrored = player.facing == LEFT;
+    }
     if (sprite.id == 0) {
         return;
     }
@@ -815,16 +826,16 @@ static void drawTorchBar(const Textures& textures, int x, int y, float fuelRatio
     Rectangle destination = {static_cast<float>(x), static_cast<float>(y), litWidth * scale,
                              barHeight * scale};
     // Below 30% the bar switches to the red low-fuel art
-    const Texture2D* litBar = &textures.hudTorchbarFull;
+    Texture2D litBar = textures.hudTorchbarFull;
     Color tint = WHITE;
     if (fuelRatio < 0.3f) {
         if (textures.hudTorchbarLow.id != 0) {
-            litBar = &textures.hudTorchbarLow;
+            litBar = textures.hudTorchbarLow;
         } else {
             tint = Color{255, 120, 100, 255};
         }
     }
-    DrawTexturePro(*litBar, source, destination, Vector2{0.0f, 0.0f}, 0.0f, tint);
+    DrawTexturePro(litBar, source, destination, Vector2{0.0f, 0.0f}, 0.0f, tint);
 }
 
 // Draws an inventory slot (45 x 46) with a 32 px picture and a count when it is above 0.

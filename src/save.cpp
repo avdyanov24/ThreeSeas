@@ -1,7 +1,6 @@
 #include "save.h"
 #include "validation.h"
 
-#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -41,7 +40,7 @@ int loadResults(Result results[], int maxCount) {
         }
 
         results[resultCount] = result;
-        ++resultCount;
+        resultCount++;
     }
 
     return resultCount;
@@ -53,10 +52,14 @@ bool saveResult(const Result& result) {
     int resultCount = loadResults(results, MAX_RECORDS);
     bool hasMatchingResult = false;
 
-    for (int i = 0; i < resultCount; ++i) {
+    for (int i = 0; i < resultCount; i++) {
         if (results[i].name == result.name && results[i].levelId == result.levelId) {
             if (result.bestSeconds < results[i].bestSeconds) {
-                int bestStars = std::max(result.stars, results[i].stars);
+                // A faster time never lowers the stars that were already earned
+                int bestStars = result.stars;
+                if (results[i].stars > bestStars) {
+                    bestStars = results[i].stars;
+                }
                 results[i] = result;
                 results[i].stars = bestStars;
             }
@@ -70,7 +73,7 @@ bool saveResult(const Result& result) {
             return false;
         }
         results[resultCount] = result;
-        ++resultCount;
+        resultCount++;
     }
 
     std::filesystem::create_directories("save");
@@ -79,7 +82,7 @@ bool saveResult(const Result& result) {
         return false;
     }
 
-    for (int i = 0; i < resultCount; ++i) {
+    for (int i = 0; i < resultCount; i++) {
         output << results[i].name << ' ' << results[i].levelId << ' ' << results[i].bestSeconds
                << ' ' << results[i].stars << '\n';
     }
@@ -92,7 +95,7 @@ bool getBestResult(const std::string& name, int levelId, Result& best) {
     Result results[MAX_RECORDS];
     int resultCount = loadResults(results, MAX_RECORDS);
 
-    for (int i = 0; i < resultCount; ++i) {
+    for (int i = 0; i < resultCount; i++) {
         if (results[i].name == name && results[i].levelId == levelId) {
             best = results[i];
             return true;
@@ -131,7 +134,7 @@ int loadWins(WinRecord records[], int maxCount) {
         }
 
         records[recordCount] = record;
-        ++recordCount;
+        recordCount++;
     }
 
     return recordCount;
@@ -143,9 +146,9 @@ bool addWin(const std::string& name) {
     int recordCount = loadWins(records, MAX_RECORDS);
     bool hasMatchingRecord = false;
 
-    for (int i = 0; i < recordCount; ++i) {
+    for (int i = 0; i < recordCount; i++) {
         if (records[i].name == name) {
-            ++records[i].wins;
+            records[i].wins++;
             hasMatchingRecord = true;
             break;
         }
@@ -157,7 +160,7 @@ bool addWin(const std::string& name) {
         }
         records[recordCount].name = name;
         records[recordCount].wins = 1;
-        ++recordCount;
+        recordCount++;
     }
 
     std::filesystem::create_directories("save");
@@ -166,14 +169,14 @@ bool addWin(const std::string& name) {
         return false;
     }
 
-    for (int i = 0; i < recordCount; ++i) {
+    for (int i = 0; i < recordCount; i++) {
         output << records[i].name << ' ' << records[i].wins << '\n';
     }
 
     return true;
 }
 
-// Loads sound and Free Play settings, using their defaults when unavailable.
+// Loads the switches and volumes, using their defaults for anything missing or broken.
 Settings loadSettings() {
     Settings settings;
     settings.isSoundOn = true;

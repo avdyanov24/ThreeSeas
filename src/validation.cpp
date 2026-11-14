@@ -1,7 +1,5 @@
 #include "validation.h"
 
-#include <cstddef>
-
 // Converts text to a number. Returns true when every character is a digit.
 bool parseWholeNumber(const std::string& text, int& number) {
     if (text.empty() || text.length() > 9) {
@@ -9,7 +7,8 @@ bool parseWholeNumber(const std::string& text, int& number) {
     }
 
     int parsedNumber = 0;
-    for (std::size_t i = 0; i < text.length(); i++) {
+    int length = text.length();
+    for (int i = 0; i < length; i++) {
         char character = text[i];
         if (character < '0' || character > '9') {
             return false;
@@ -41,7 +40,8 @@ bool isValidName(const std::string& name) {
         return false;
     }
 
-    for (std::size_t i = 0; i < name.length(); i++) {
+    int length = name.length();
+    for (int i = 0; i < length; i++) {
         char character = name[i];
         bool isLowercaseLetter = character >= 'a' && character <= 'z';
         bool isUppercaseLetter = character >= 'A' && character <= 'Z';
