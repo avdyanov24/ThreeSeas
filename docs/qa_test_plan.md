@@ -215,3 +215,11 @@
 - **Input:** Load with no file; save Sound off and volumes 0, 10 and 3; load a file with volumes 11, -1 and 7.
 - **Expected result:** Defaults 5, 4 and 8 without a file; the saved values load back; values outside 0 to 10 are ignored and keep their default.
 - **Actual result:** Passed on 14 Nov 2026 (4 checks, all PASS)
+
+### T28: Remembered players
+
+- **Purpose:** Check that player names and the last multiplayer setup are remembered.
+- **Function tested:** `rememberPlayer`, `loadPlayers`, `forgetPlayer`, `saveLastSetup`, `loadLastSetup`
+- **Input:** Remember Ana, Boris and Ana again, an invalid name, five more names, then forget one; save and load a 3-player setup.
+- **Expected result:** The last player is first and nobody is listed twice, invalid names are refused, at most 5 names are kept, a forgotten name is gone, the setup loads back with its names and heroes.
+- **Actual result:** Passed on 14 Nov 2026 (7 checks, all PASS)

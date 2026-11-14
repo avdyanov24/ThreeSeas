@@ -1061,6 +1061,54 @@ void testSettingsAndVolumes(int& failures) {
     std::remove("save/settings.txt");
 }
 
+// Checks the remembered players (last player first, no repeats, at most
+// MAX_SAVED_PLAYERS, forgetting) and the saved multiplayer setup.
+void testRememberedPlayers(int& failures) {
+    std::remove("save/players.txt");
+    std::string names[MAX_SAVED_PLAYERS];
+    check("T28 nobody is remembered without a file",
+          loadPlayers(names, MAX_SAVED_PLAYERS) == 0, failures);
+
+    rememberPlayer("Ana");
+    rememberPlayer("Boris");
+    rememberPlayer("Ana");
+    int count = loadPlayers(names, MAX_SAVED_PLAYERS);
+    check("T28 the last player comes first without repeats",
+          count == 2 && names[0] == "Ana" && names[1] == "Boris", failures);
+    check("T28 an invalid name is not remembered", !rememberPlayer("bad name"), failures);
+
+    const char* const extra[5] = {"C1", "C2", "C3", "C4", "C5"};
+    for (int i = 0; i < 5; i++) {
+        rememberPlayer(extra[i]);
+    }
+    count = loadPlayers(names, MAX_SAVED_PLAYERS);
+    check("T28 at most 5 players are remembered",
+          count == MAX_SAVED_PLAYERS && names[0] == "C5", failures);
+
+    forgetPlayer("C3");
+    count = loadPlayers(names, MAX_SAVED_PLAYERS);
+    bool isC3Gone = count == MAX_SAVED_PLAYERS - 1;
+    for (int i = 0; i < count; i++) {
+        if (names[i] == "C3") {
+            isC3Gone = false;
+        }
+    }
+    check("T28 a forgotten player is removed", isC3Gone, failures);
+    std::remove("save/players.txt");
+
+    std::remove("save/last_setup.txt");
+    std::string setupNames[MAX_PLAYERS] = {"Ana", "Boris", "Cvetan"};
+    CharacterId setupHeroes[MAX_PLAYERS] = {LEVSKI, KRUM, ASPARUH};
+    check("T28 the multiplayer setup saves", saveLastSetup(setupNames, setupHeroes, 3),
+          failures);
+    std::string loadedNames[MAX_PLAYERS];
+    CharacterId loadedHeroes[MAX_PLAYERS];
+    count = loadLastSetup(loadedNames, loadedHeroes, MAX_PLAYERS);
+    check("T28 the multiplayer setup loads back",
+          count == 3 && loadedNames[2] == "Cvetan" && loadedHeroes[0] == LEVSKI, failures);
+    std::remove("save/last_setup.txt");
+}
+
 // Runs every test and returns 0 only if every check passed.
 int main() {
     int failures = 0;
@@ -1093,6 +1141,7 @@ int main() {
     testTurnRules(failures);
     testItemsAndData(failures);
     testSettingsAndVolumes(failures);
+    testRememberedPlayers(failures);
 
     if (failures == 0) {
         std::cout << "All tests passed\n";

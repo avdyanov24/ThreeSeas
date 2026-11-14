@@ -11,6 +11,7 @@ const int MAX_SIZE = 50;
 const int MIN_PLAYERS = 2;
 const int MAX_PLAYERS = 4;
 const int MAX_NAME_LENGTH = 12;
+const int MAX_SAVED_PLAYERS = 5;  // names remembered in save/players.txt
 const int LEVEL_COUNT = 9;
 const int ARENA_COUNT = 3;
 const int CHARACTER_COUNT = 6;
@@ -173,6 +174,8 @@ struct UiState {
     int chosenSize;            // maze size chosen on the level intro / MP setup
     int arenaId;               // multiplayer arena
     int playerCount;           // multiplayer players
+    std::string savedPlayers[MAX_SAVED_PLAYERS];  // remembered names, last player first
+    int savedPlayerCount;
     std::string playerNames[MAX_PLAYERS];
     CharacterId characters[MAX_PLAYERS];
     Settings settings;

@@ -96,7 +96,9 @@ In multiplayer `getSpawnCell` gives each player a corner (top-left, bottom-right
 |---|---|
 | `save/results.txt` | The best (fastest) time and stars of each player on each level |
 | `save/wins.txt` | The number of multiplayer wins of each player |
-| `save/settings.txt` | Sound on or off and Free Play |
+| `save/settings.txt` | Sound on or off, Free Play and the three volumes |
+| `save/players.txt` | The remembered player names, the last player first |
+| `save/last_setup.txt` | The names and heroes of the last multiplayer game |
 
 A missing or broken file is not an error: the game starts with empty data or the defaults.
 
@@ -187,6 +189,7 @@ A missing or broken file is not an error: the game starts with empty data or the
 | T21 | The data of all nine levels |
 | T22 to T24 | Placing features, the multiplayer start (spawns, random exit, fuel and traps), turn time and the player count and hero checks |
 | T25 to T26 | The multiplayer turn rules, the Map and Trap items and the arena and hero tables |
+| T27 to T28 | Settings and volumes, remembered players and the last multiplayer setup |
 
 All tests pass. The QA test plan in `docs/qa_test_plan.md` lists the purpose, input, expected result and actual result for each test. Besides the unit tests, scripts generated every campaign maze size from 10 to 50 for all nine levels, and multiplayer games on every arena with 2, 3 and 4 players. In all of them the exit was reachable and the games ended with a winner.
 

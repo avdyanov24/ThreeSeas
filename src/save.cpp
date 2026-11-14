@@ -1,4 +1,5 @@
 #include "save.h"
+#include "validation.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -239,5 +240,114 @@ bool saveSettings(const Settings& settings) {
     output << "gamemusic " << settings.gameMusicVolume << '\n';
     output << "effects " << settings.effectsVolume << '\n';
 
+    return true;
+}
+
+// Writes the names to save/players.txt, one per line. Returns false if writing failed.
+static bool writePlayers(const std::string names[], int count) {
+    std::filesystem::create_directories("save");
+    std::ofstream output("save/players.txt");
+    if (!output.is_open()) {
+        return false;
+    }
+    for (int i = 0; i < count; i++) {
+        output << names[i] << '\n';
+    }
+    return true;
+}
+
+// Reads the remembered names, skipping invalid and repeated ones.
+int loadPlayers(std::string names[], int maxCount) {
+    std::ifstream input("save/players.txt");
+    if (!input.is_open()) {
+        return 0;
+    }
+    int count = 0;
+    std::string line;
+    while (count < maxCount && std::getline(input, line)) {
+        if (!isValidName(line)) {
+            continue;
+        }
+        bool isRepeated = false;
+        for (int i = 0; i < count; i++) {
+            if (names[i] == line) {
+                isRepeated = true;
+            }
+        }
+        if (!isRepeated) {
+            names[count] = line;
+            count++;
+        }
+    }
+    return count;
+}
+
+// Moves name to the front of the remembered names.
+bool rememberPlayer(const std::string& name) {
+    if (!isValidName(name)) {
+        return false;
+    }
+    std::string names[MAX_SAVED_PLAYERS];
+    int count = loadPlayers(names, MAX_SAVED_PLAYERS);
+    std::string ordered[MAX_SAVED_PLAYERS];
+    ordered[0] = name;
+    int orderedCount = 1;
+    for (int i = 0; i < count && orderedCount < MAX_SAVED_PLAYERS; i++) {
+        if (names[i] != name) {
+            ordered[orderedCount] = names[i];
+            orderedCount++;
+        }
+    }
+    return writePlayers(ordered, orderedCount);
+}
+
+// Removes name from the remembered names.
+bool forgetPlayer(const std::string& name) {
+    std::string names[MAX_SAVED_PLAYERS];
+    int count = loadPlayers(names, MAX_SAVED_PLAYERS);
+    std::string kept[MAX_SAVED_PLAYERS];
+    int keptCount = 0;
+    for (int i = 0; i < count; i++) {
+        if (names[i] != name) {
+            kept[keptCount] = names[i];
+            keptCount++;
+        }
+    }
+    return writePlayers(kept, keptCount);
+}
+
+// Reads the names and heroes of the last multiplayer game.
+int loadLastSetup(std::string names[], CharacterId heroes[], int maxCount) {
+    std::ifstream input("save/last_setup.txt");
+    if (!input.is_open()) {
+        return 0;
+    }
+    int count = 0;
+    std::string line;
+    while (count < maxCount && std::getline(input, line)) {
+        std::istringstream lineStream(line);
+        std::string name;
+        int hero = -1;
+        if (!(lineStream >> name >> hero) || !isValidName(name) || hero < ASPARUH ||
+            hero > LEVSKI) {
+            continue;
+        }
+        names[count] = name;
+        heroes[count] = static_cast<CharacterId>(hero);
+        count++;
+    }
+    return count;
+}
+
+// Writes one "name hero" line per player.
+bool saveLastSetup(const std::string names[], const CharacterId heroes[], int count) {
+    std::filesystem::create_directories("save");
+    std::ofstream output("save/last_setup.txt");
+    if (!output.is_open()) {
+        return false;
+    }
+    for (int i = 0; i < count; i++) {
+        output << names[i] << ' ' << static_cast<int>(heroes[i]) << '\n';
+    }
     return true;
 }

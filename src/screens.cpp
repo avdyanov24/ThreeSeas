@@ -23,6 +23,8 @@ const int MENU_BUTTON_X = (SCREEN_WIDTH - BUTTON_WIDTH) / 2;
 const int MENU_BUTTON_START_Y = 218;
 const int BACK_BUTTON_X = (SCREEN_WIDTH - BUTTON_WIDTH) / 2;
 const int BACK_BUTTON_Y = 590;
+const int NAME_FIRST_ROW_Y = 200;  // name entry: first remembered player row
+const int NAME_ROW_STEP = 48;
 const int INTRO_BACK_X = 364;   // the level intro has Back and Start side by side
 const int INTRO_START_X = 660;
 const int MENU_ITEM_COUNT = 6;
@@ -520,6 +522,17 @@ Screen openMultiplayerSetup(UiState& ui) {
         }
         ui.arenaId = 1;
         ui.typedText = "30";
+        // The names and heroes of the last multiplayer game come back
+        std::string lastNames[MAX_PLAYERS];
+        CharacterId lastHeroes[MAX_PLAYERS];
+        int lastCount = loadLastSetup(lastNames, lastHeroes, MAX_PLAYERS);
+        if (lastCount >= 2) {
+            ui.playerCount = lastCount;
+            for (int i = 0; i < lastCount; i++) {
+                ui.playerNames[i] = lastNames[i];
+                ui.characters[i] = lastHeroes[i];
+            }
+        }
     }
     ui.selectedItem = 0;
     ui.errorMessage = "";
@@ -642,6 +655,7 @@ Screen updateMultiplayerSetup(UiState& ui) {
             parseWholeNumber(ui.typedText, size);
             ui.chosenSize = size;
             ui.isMultiplayerGame = true;
+            saveLastSetup(ui.playerNames, ui.characters, ui.playerCount);
             return PLAYING;
         }
     }
@@ -1009,28 +1023,62 @@ Screen updateBackScreen(Screen screen, UiState& ui) {
     return screen;
 }
 
-// Prepares the name entry screen with the last accepted name and clicks. Returns NAME_ENTRY.
+// Opens the name entry screen with the remembered players. The last player is chosen,
+// or the new-name box when nobody is remembered yet. Returns NAME_ENTRY.
 Screen openNameEntry(UiState& ui) {
     requestSound(ui, SOUND_CLICK);
-    ui.typedText = ui.playerName;
+    ui.savedPlayerCount = loadPlayers(ui.savedPlayers, MAX_SAVED_PLAYERS);
+    ui.typedText = "";
     ui.errorMessage = "";
-    ui.selectedItem = -1;
+    ui.selectedItem = 0;
     return NAME_ENTRY;
 }
 
-// Handles typing, Backspace, Enter and the way back on the name entry screen. Returns
-// MAIN_MENU for a valid name, TITLE for Esc or Back, otherwise NAME_ENTRY.
-Screen updateNameEntry(UiState& ui) {
-    Vector2 pointer = GetMousePosition();
-    bool isMouseClick = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-    ui.selectedItem =
-        isPointerOverButton(pointer, BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH,
-                            BUTTON_HEIGHT)
-            ? 0
-            : -1;
+// Returns the top of a row on the name entry screen: the remembered players first, then
+// the new-name box (row savedPlayerCount).
+static int getNameRowY(int row) {
+    return NAME_FIRST_ROW_Y + row * NAME_ROW_STEP;
+}
 
+// Continues as name: remembers it as the last player and opens the main menu.
+static Screen chooseName(UiState& ui, const std::string& name) {
+    rememberPlayer(name);
+    ui.playerName = name;
+    ui.errorMessage = "";
+    ui.selectedItem = 0;
+    return MAIN_MENU;
+}
+
+// Handles the name entry screen. Up/Down choose a remembered player or the new-name box,
+// typing goes into the box, Enter (or a click) continues, Delete forgets the chosen
+// remembered player. Returns MAIN_MENU for a chosen or valid new name, TITLE for Esc or
+// Back, otherwise NAME_ENTRY.
+Screen updateNameEntry(UiState& ui) {
+    const int newRow = ui.savedPlayerCount;
+    const int backItem = ui.savedPlayerCount + 1;
+    Vector2 pointer = GetMousePosition();
+    Vector2 mouseDelta = GetMouseDelta();
+    bool isMouseClick = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f || isMouseClick) {
+        for (int row = 0; row <= newRow; row++) {
+            int rowY = getNameRowY(row);
+            if (pointer.x >= 420.0f && pointer.x <= 860.0f && pointer.y >= rowY - 6 &&
+                pointer.y <= rowY + 40) {
+                ui.selectedItem = row;
+            }
+        }
+        if (isPointerOverButton(pointer, BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH,
+                                BUTTON_HEIGHT)) {
+            ui.selectedItem = backItem;
+        } else if (ui.selectedItem == backItem) {
+            ui.selectedItem = newRow;
+        }
+    }
+
+    // Typing always goes into the new-name box
     int key = GetCharPressed();
     while (key > 0) {
+        ui.selectedItem = newRow;
         if (key >= 32 && key <= 126 &&
             static_cast<int>(ui.typedText.size()) < MAX_NAME_LENGTH) {
             ui.typedText += static_cast<char>(key);
@@ -1038,58 +1086,90 @@ Screen updateNameEntry(UiState& ui) {
         ui.errorMessage = "";
         key = GetCharPressed();
     }
-
     if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) &&
-        !ui.typedText.empty()) {
+        ui.selectedItem == newRow && !ui.typedText.empty()) {
         ui.typedText.pop_back();
         ui.errorMessage = "";
     }
 
-    if (IsKeyPressed(KEY_ENTER)) {
+    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_DOWN)) {
         requestSound(ui, SOUND_CLICK);
-        if (isValidName(ui.typedText)) {
-            ui.playerName = ui.typedText;
-            ui.errorMessage = "";
-            ui.selectedItem = 0;
-            return MAIN_MENU;
+        int direction = IsKeyPressed(KEY_UP) ? -1 : 1;
+        ui.selectedItem = moveSelection(ui.selectedItem, direction, newRow + 1);
+    }
+
+    if (IsKeyPressed(KEY_DELETE) && ui.selectedItem >= 0 && ui.selectedItem < newRow) {
+        requestSound(ui, SOUND_CLICK);
+        forgetPlayer(ui.savedPlayers[ui.selectedItem]);
+        ui.savedPlayerCount = loadPlayers(ui.savedPlayers, MAX_SAVED_PLAYERS);
+        if (ui.selectedItem > ui.savedPlayerCount) {
+            ui.selectedItem = ui.savedPlayerCount;
         }
-        ui.errorMessage = "Use 1 to 12 letters, numbers or _.";
         return NAME_ENTRY;
     }
 
-    if (IsKeyPressed(KEY_ESCAPE) || (isMouseClick && ui.selectedItem == 0)) {
+    if (IsKeyPressed(KEY_ESCAPE) || (isMouseClick && ui.selectedItem == backItem)) {
         requestSound(ui, SOUND_CLICK);
         ui.selectedItem = 0;
         return TITLE;
     }
+
+    bool isChosen = IsKeyPressed(KEY_ENTER) || (isMouseClick && ui.selectedItem >= 0 &&
+                                                 ui.selectedItem < newRow);
+    if (!isChosen) {
+        return NAME_ENTRY;
+    }
+    requestSound(ui, SOUND_CLICK);
+    if (ui.selectedItem >= 0 && ui.selectedItem < newRow) {
+        return chooseName(ui, ui.savedPlayers[ui.selectedItem]);
+    }
+    if (isValidName(ui.typedText)) {
+        return chooseName(ui, ui.typedText);
+    }
+    ui.errorMessage = "Use 1 to 12 letters, numbers or _.";
     return NAME_ENTRY;
 }
 
-// Draws the name entry screen: heading, text input with its error, hint and Back.
+// Draws the name entry screen: the remembered players as "Continue as" rows, the box for
+// a new name with its rule and error, a hint and Back.
 void drawNameEntry(const Textures& textures, const UiState& ui) {
     drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
     drawDarkLayer();
 
-    drawPanel(340, 150, 600, 320);
-    const char* heading = "Enter your name";
-    int headingWidth = MeasureText(heading, 38);
-    DrawText(heading, (SCREEN_WIDTH - headingWidth) / 2, 190, 38, GOLD);
-    const char* rule = "1 to 12 letters, numbers or _";
-    int ruleWidth = MeasureText(rule, 20);
-    DrawText(rule, (SCREEN_WIDTH - ruleWidth) / 2, 250, 20, LIGHTGRAY);
+    drawPanel(340, 110, 600, 450);
+    const char* heading = "Who is playing?";
+    DrawText(heading, (SCREEN_WIDTH - MeasureText(heading, 40)) / 2, 140, 40, GOLD);
 
-    drawTextInput(ui.typedText, (SCREEN_WIDTH - 400) / 2, 300, 400, true, "");
-    if (!ui.errorMessage.empty()) {
-        int errorWidth = MeasureText(ui.errorMessage.c_str(), 20);
-        DrawText(ui.errorMessage.c_str(), (SCREEN_WIDTH - errorWidth) / 2, 362, 20, ERROR_RED);
+    const int newRow = ui.savedPlayerCount;
+    for (int row = 0; row < newRow; row++) {
+        int y = getNameRowY(row);
+        bool isFocused = ui.selectedItem == row;
+        if (isFocused) {
+            DrawText(">", 420, y + 8, 30, GOLD);
+        }
+        std::string label = "Continue as " + ui.savedPlayers[row];
+        DrawText(label.c_str(), 450, y + 8, 30, isFocused ? GOLD : RAYWHITE);
     }
 
-    const char* hint = "Press Enter to continue";
-    int hintWidth = MeasureText(hint, 20);
-    DrawText(hint, (SCREEN_WIDTH - hintWidth) / 2, 420, 20, LIGHTGRAY);
+    int newY = getNameRowY(newRow);
+    bool isNewFocused = ui.selectedItem == newRow;
+    if (isNewFocused) {
+        DrawText(">", 420, newY + 8, 30, GOLD);
+    }
+    DrawText("New:", 450, newY + 8, 30, isNewFocused ? GOLD : RAYWHITE);
+    drawTextInput(ui.typedText, 540, newY, 300, isNewFocused, "");
+    const char* rule = "1 to 12 letters, numbers or _";
+    if (!ui.errorMessage.empty()) {
+        rule = ui.errorMessage.c_str();
+    }
+    DrawText(rule, 540, newY + 56, 20, ui.errorMessage.empty() ? LIGHTGRAY : ERROR_RED);
+
+    const char* hint = newRow > 0 ? "Up/Down: choose   Enter: play   Delete: forget"
+                                  : "Type your name and press Enter";
+    DrawText(hint, (SCREEN_WIDTH - MeasureText(hint, 20)) / 2, 524, 20, LIGHTGRAY);
 
     drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
-                    ui.selectedItem == 0, false, textures);
+                    ui.selectedItem == newRow + 1, false, textures);
 }
 
 // Draws the title screen and its route into the main menu.
