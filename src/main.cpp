@@ -108,7 +108,7 @@ static void playFrameSounds(Sounds& sounds, UiState& ui, const GameState& game, 
 
 // Opens the game window and runs the screen state machine.
 int main() {
-    InitWindow(1280, 720, "Crossroads");
+    InitWindow(1280, 720, "Three Seas");
     SetTargetFPS(60);
     SetExitKey(KEY_NULL);
     InitAudioDevice();
@@ -129,7 +129,10 @@ int main() {
         Screen previousScreen = screen;
         Screen nextScreen = updateScreen(screen, game, ui, deltaTime);
         if (nextScreen != screen) {
-            ui.screenSeconds = 0.0f;
+            // Pausing and resuming must not fade the maze out and back in.
+            bool isPauseSwitch = (screen == PLAYING && nextScreen == PAUSED) ||
+                                 (screen == PAUSED && nextScreen == PLAYING);
+            ui.screenSeconds = isPauseSwitch ? 1.0f : 0.0f;
         } else {
             ui.screenSeconds += deltaTime;
         }
