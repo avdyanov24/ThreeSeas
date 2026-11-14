@@ -321,20 +321,13 @@ static unsigned int hashCell(int row, int col, int salt) {
     return hash;
 }
 
-// Returns one axis of the camera origin: the viewer centred, stopped at the maze border,
-// or the whole maze centred when it is smaller than the window
+// Returns one axis of the camera origin: the viewer always in the middle, or the whole
+// maze centred when it is smaller than the window
 static float getCameraAxis(float center, float worldSize, float screenSize) {
     if (worldSize <= screenSize) {
         return std::floor((worldSize - screenSize) / 2.0f);
     }
-    float origin = center - screenSize / 2.0f;
-    if (origin < 0.0f) {
-        origin = 0.0f;
-    }
-    if (origin > worldSize - screenSize) {
-        origin = worldSize - screenSize;
-    }
-    return std::floor(origin);
+    return std::floor(center - screenSize / 2.0f);
 }
 
 // Returns the world position shown in the top-left corner of the screen
@@ -746,7 +739,32 @@ void drawPlayerSeenBy(const GameState& game, const Player& viewer, const Player&
     Rectangle destination = {(player.visualCol + 1.5f) * TILE_SIZE - camera.x - width / 2.0f,
                              (player.visualRow + 2.0f) * TILE_SIZE - camera.y - height,
                              width, height};
+    float feetX = (player.visualCol + 1.5f) * TILE_SIZE - camera.x;
+    float feetY = (player.visualRow + 2.0f) * TILE_SIZE - camera.y - 6.0f;
+    // In multiplayer a gold ring under the feet shows whose turn it is
+    if (game.isMultiplayer && &viewer == &player) {
+        DrawEllipseLines(static_cast<int>(feetX), static_cast<int>(feetY), 22.0f, 8.0f, GOLD);
+        DrawEllipseLines(static_cast<int>(feetX), static_cast<int>(feetY), 21.0f, 7.0f, GOLD);
+    }
     DrawTexturePro(sprite, source, destination, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+
+    // A trap holds the player for 2 seconds: a bar above the head runs out with that time
+    if (player.stuckSeconds > 0.0f) {
+        const float holdSeconds = 2.0f;
+        const int barWidth = 40;
+        int barX = static_cast<int>(feetX) - barWidth / 2;
+        int barY = static_cast<int>(destination.y) - 12;
+        int fillWidth = static_cast<int>(barWidth * player.stuckSeconds / holdSeconds);
+        DrawRectangle(barX - 1, barY - 1, barWidth + 2, 8, Color{0, 0, 0, 180});
+        DrawRectangle(barX, barY, fillWidth, 6, GOLD);
+        // The label gets a black outline so it stays readable on the bright floor
+        int labelX = static_cast<int>(feetX) - MeasureText("Trapped", 20) / 2;
+        const int outline[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+        for (int i = 0; i < 4; i++) {
+            DrawText("Trapped", labelX + outline[i][0], barY - 24 + outline[i][1], 20, BLACK);
+        }
+        DrawText("Trapped", labelX, barY - 24, 20, GOLD);
+    }
 }
 
 // Draws a picture stretched to the rectangle, with a tint. A missing picture draws nothing.
@@ -806,15 +824,16 @@ static void drawTorchBar(const Textures& textures, int x, int y, float fuelRatio
     DrawTexturePro(*litBar, source, destination, Vector2{0.0f, 0.0f}, 0.0f, tint);
 }
 
-// Draws an inventory slot with a picture and an optional count (-1 draws no count). A slot
-// that is not owned (grayed) is drawn dim.
+// Draws an inventory slot (45 x 46) with a 32 px picture and a count when it is above 0.
+// Both are drawn at their own size so the pixels stay sharp. A slot that is not owned
+// is drawn dim.
 static void drawSlot(const Textures& textures, const Texture2D& icon, int x, int count,
                      bool isOwned) {
-    drawPicture(textures.hudSlot, static_cast<float>(x), 16.0f, 56.0f, 56.0f, WHITE);
+    drawPicture(textures.hudSlot, static_cast<float>(x), 21.0f, 45.0f, 46.0f, WHITE);
     Color tint = isOwned ? WHITE : Color{255, 255, 255, 70};
-    drawPicture(icon, static_cast<float>(x + 10), 26.0f, 36.0f, 36.0f, tint);
-    if (count >= 0) {
-        drawShadowText(TextFormat("%d", count), x + 40, 54, 18, RAYWHITE);
+    drawPicture(icon, static_cast<float>(x + 6), 28.0f, 32.0f, 32.0f, tint);
+    if (count > 0) {
+        drawOutlinedText(TextFormat("%d", count), x + 32, 52, 20, RAYWHITE);
     }
 }
 
@@ -840,20 +859,26 @@ void drawHud(const GameState& game, const Player& viewer, const Textures& textur
                                       static_cast<int>(viewer.maxFuel + 0.5f));
     drawOutlinedText(fuelText, 8 + (462 - MeasureText(fuelText, 20)) / 2, 33, 20, RAYWHITE);
 
-    drawPicture(textures.hudTimer, 482.0f, 24.0f, 40.0f, 40.0f, WHITE);
+    drawPicture(textures.hudTimer, 486.0f, 28.0f, 32.0f, 32.0f, WHITE);
     const char* timeText = "00:00";
     Color timeColor = RAYWHITE;
+    int timeSize = 30;
     if (game.isMultiplayer) {
         float secondsLeft = game.turnSecondsLeft > 0.0f ? game.turnSecondsLeft : 0.0f;
-        timeText = TextFormat("%.1f s", secondsLeft);
+        timeText = TextFormat("%.1f", secondsLeft);
         if (secondsLeft < 3.0f) {
+            // In the last 3 seconds the time turns red and jumps bigger on every second
             timeColor = Color{255, 96, 80, 255};
+            float partOfSecond = secondsLeft - std::floor(secondsLeft);
+            if (partOfSecond > 0.8f) {
+                timeSize = 40;
+            }
         }
     } else {
         int seconds = game.timeSeconds > 0.0f ? static_cast<int>(game.timeSeconds) : 0;
         timeText = TextFormat("%02d:%02d", seconds / 60, seconds % 60);
     }
-    drawShadowText(timeText, 530, 32, 26, timeColor);
+    drawShadowText(timeText, 530, 44 - timeSize / 2, timeSize, timeColor);
 
     drawSlot(textures, textures.hudMap, 620, viewer.maps, viewer.maps > 0);
     drawSlot(textures, textures.hudKey, 688, -1, viewer.hasKey);
@@ -862,9 +887,9 @@ void drawHud(const GameState& game, const Player& viewer, const Textures& textur
     }
 
     if (game.isMultiplayer) {
-        DrawText(viewer.name.c_str(), 836, 12, 24, GOLD);
-        DrawText(TextFormat("Turn %d", game.turnNumber), 836, 40, 20, RAYWHITE);
-        DrawText("Hold arrows  1: map  2: trap  Enter: done", 836, 66, 16, LIGHTGRAY);
+        DrawText(viewer.name.c_str(), 836, 12, 20, GOLD);
+        DrawText(TextFormat("Turn %d", game.turnNumber), 836, 38, 20, RAYWHITE);
+        DrawText("1 map  2 trap  Enter end", 836, 62, 20, LIGHTGRAY);
     } else {
         if (game.level != nullptr) {
             // Cherven has no known year (0), so only its name is shown
@@ -872,15 +897,17 @@ void drawHud(const GameState& game, const Player& viewer, const Textures& textur
             if (game.level->year != 0) {
                 place = TextFormat("%s - %d", place, game.level->year);
             }
-            DrawText(place, 836, 12, 24, GOLD);
+            DrawText(place, 836, 12, 20, GOLD);
         }
-        DrawText("Arrows: move   M: map   Esc: pause", 836, 66, 16, LIGHTGRAY);
+        DrawText("M map   Esc pause", 836, 62, 20, LIGHTGRAY);
     }
 
-    float frameX = static_cast<float>(screenWidth - 84);
-    drawPicture(textures.hudPortraitFrame, frameX, 10.0f, 70.0f, 65.0f, WHITE);
+    // The portrait at half its size (64 px) in a thin bronze frame
+    float portraitX = static_cast<float>(screenWidth - 80);
+    DrawRectangle(static_cast<int>(portraitX) - 3, 9, 70, 70, Color{110, 78, 40, 255});
+    DrawRectangle(static_cast<int>(portraitX) - 1, 11, 66, 66, Color{18, 14, 20, 255});
     if (viewer.character >= ASPARUH && viewer.character <= LEVSKI) {
-        drawPicture(textures.heroes[viewer.character].portrait, frameX + 10.0f, 18.0f, 50.0f,
-                    50.0f, WHITE);
+        drawPicture(textures.heroes[viewer.character].portrait, portraitX, 12.0f, 64.0f, 64.0f,
+                    WHITE);
     }
 }
