@@ -154,6 +154,7 @@ struct UiState {
     float resultSeconds;       // time of the level that just ended
     int resultStars;           // stars of the level that just ended, 0 when the torch went out
     bool isMouseActive;
+    float endBeatSeconds;      // campaign: seconds since the exit or torch out, before RESULT
     float screenSeconds;       // seconds since the current screen opened, for animations
     bool isExitRequested;
     bool isMultiplayerGame;    // true when the game on screen is a multiplayer game
