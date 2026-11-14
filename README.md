@@ -59,6 +59,7 @@ Every player starts in their own corner of one big maze. The exit is hidden in a
 | 1 / 2 | Multiplayer: Map / Trap |
 | Enter | Confirm, or end your turn early |
 | Esc | Pause menu / back |
+| F11 | Fullscreen on or off |
 | Mouse | Menus and buttons |
 
 ### Items and tiles

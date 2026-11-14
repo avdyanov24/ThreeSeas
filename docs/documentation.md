@@ -113,6 +113,7 @@ A missing or broken file is not an error: the game starts with empty data or the
 | `1` / `2` | Multiplayer: use a Map / place a Trap |
 | `Enter` | Confirm, or end your turn early |
 | `Esc` | Pause menu or back |
+| `F11` | Fullscreen on or off |
 | Mouse | Menus and buttons |
 
 ### The torch
@@ -191,6 +192,7 @@ A missing or broken file is not an error: the game starts with empty data or the
 | T25 to T26 | The multiplayer turn rules, the Map and Trap items and the arena and hero tables |
 | T27 to T28 | Settings and volumes, remembered players and the last multiplayer setup |
 | T29 | The tutorial maze and its steps |
+| T30 | The fullscreen setting and the walk animation timer |
 
 All tests pass. The QA test plan in `docs/qa_test_plan.md` lists the purpose, input, expected result and actual result for each test. Besides the unit tests, scripts generated every campaign maze size from 10 to 50 for all nine levels, and multiplayer games on every arena with 2, 3 and 4 players. In all of them the exit was reachable and the games ended with a winner.
 

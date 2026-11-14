@@ -117,6 +117,9 @@ bool tryMove(Maze& maze, Player& player, Direction direction) {
 
     player.row = nextRow;
     player.col = nextCol;
+    // Long enough to reach the next step, also on water (0.24 s), so a held arrow key
+    // keeps the hero walking instead of flicking back to standing between cells
+    player.walkSeconds = 0.3f;
     return true;
 }
 
@@ -319,6 +322,7 @@ static float approachValue(float current, float target, float step) {
 // Slides the drawn position of the player towards their cell at 10 cells per second.
 void updateVisualPosition(Player& player, float deltaTime) {
     float step = deltaTime * 10.0f;
+    player.walkSeconds = player.walkSeconds > deltaTime ? player.walkSeconds - deltaTime : 0.0f;
     player.visualRow = approachValue(player.visualRow, static_cast<float>(player.row), step);
     player.visualCol = approachValue(player.visualCol, static_cast<float>(player.col), step);
 }

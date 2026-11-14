@@ -32,9 +32,9 @@ const int LOGO_WIDTH = 366;
 const int LOGO_HEIGHT = 144;
 const char* const MENU_ITEMS[MENU_ITEM_COUNT] = {
     "Campaign", "Multiplayer", "Leaderboard", "How to Play", "Settings", "Exit"};
-const int SETTINGS_ROW_COUNT = 5;  // Sound, Free Play and three volume sliders
-const int SETTINGS_FIRST_ROW_Y = 220;
-const int SETTINGS_ROW_STEP = 54;
+const int SETTINGS_ROW_COUNT = 6;  // Sound, Free Play, three volume sliders, Fullscreen
+const int SETTINGS_FIRST_ROW_Y = 200;
+const int SETTINGS_ROW_STEP = 52;
 const int SLIDER_X = 640;
 const int SLIDER_WIDTH = 220;
 const int PAUSE_ITEM_COUNT = 3;
@@ -1182,12 +1182,27 @@ void drawNameEntry(const Textures& textures, const UiState& ui) {
 
 // Draws the title screen and its route into the main menu.
 void drawTitleScreen(const Textures& textures, const UiState& ui) {
-    drawMovingBackground(textures.titleScreen, Color{12, 10, 16, 255});
+    // The painting stays still; embers rise over it and the logo floats up and down
+    drawScreenBackground(textures.titleBackground, Color{12, 10, 16, 255});
     drawEmbers();
-    float pulse = 0.65f + 0.35f * sinf(static_cast<float>(GetTime()) * 3.0f);
-    drawFadedTextPlate("Press Enter to continue", SCREEN_WIDTH / 2, 540, 24, RAYWHITE, pulse);
-    drawButtonStyle("Start", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
-                    ui.selectedItem == 0, false, textures);
+    float time = static_cast<float>(GetTime());
+    if (textures.menuLogo.id != 0) {
+        // The logo at exactly 2x, entering from 30 px lower during the first second
+        float width = static_cast<float>(textures.menuLogo.width * 2);
+        float height = static_cast<float>(textures.menuLogo.height * 2);
+        float entrance = getEasedProgress(ui.screenSeconds, 1.0f);
+        float bob = 8.0f * sinf(time * 1.6f);
+        float y = roundf(120.0f + bob + 30.0f * (1.0f - entrance));
+        Rectangle source = {0.0f, 0.0f, static_cast<float>(textures.menuLogo.width),
+                            static_cast<float>(textures.menuLogo.height)};
+        Rectangle destination = {roundf((SCREEN_WIDTH - width) / 2.0f), y, width, height};
+        DrawTexturePro(textures.menuLogo, source, destination, Vector2{0.0f, 0.0f}, 0.0f,
+                       Fade(WHITE, entrance));
+    }
+    // One clear prompt that breathes softly and appears after the logo
+    float pulse = 0.6f + 0.4f * (0.5f + 0.5f * sinf(time * 2.5f));
+    float promptAlpha = pulse * getProgress(ui.screenSeconds, 0.8f, 0.4f);
+    drawFadedTextPlate("Press Enter to start", SCREEN_WIDTH / 2, 560, 30, RAYWHITE, promptAlpha);
 }
 
 // Draws the main menu over the supplied corridor and logo art.
@@ -1525,7 +1540,7 @@ void drawButtonMenu(const Textures& textures, const UiState& ui, const char* con
 // area, then the HUD on top.
 void drawGameplay(const GameState& game, const Textures& textures) {
     const Player& viewer = game.players[game.currentPlayer];
-    BeginScissorMode(0, HUD_HEIGHT, GetScreenWidth(), GetScreenHeight() - HUD_HEIGHT);
+    BeginScissorMode(0, HUD_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT - HUD_HEIGHT);
     drawMaze(game, viewer, textures);
     drawTorchLight(game, viewer, textures);
     for (int i = 0; i < game.playerCount; i++) {
@@ -1978,11 +1993,14 @@ Screen updateSettings(UiState& ui) {
         value = value < 0 ? 0 : (value > MAX_VOLUME ? MAX_VOLUME : value);
         hasChanged = value != *volume;
         *volume = value;
-    } else if ((ui.selectedItem == 0 || ui.selectedItem == 1) && (step != 0 || isPressed)) {
+    } else if ((ui.selectedItem == 0 || ui.selectedItem == 1 || ui.selectedItem == 5) &&
+               (step != 0 || isPressed)) {
         if (ui.selectedItem == 0) {
             ui.settings.isSoundOn = !ui.settings.isSoundOn;
-        } else {
+        } else if (ui.selectedItem == 1) {
             ui.settings.isFreePlay = !ui.settings.isFreePlay;
+        } else {
+            ui.settings.isFullscreen = !ui.settings.isFullscreen;  // main switches the window
         }
         hasChanged = true;
     } else if (ui.selectedItem == backItem && isPressed) {
@@ -2004,12 +2022,12 @@ void drawSettings(const Textures& textures, const UiState& ui) {
     drawMovingBackground(textures.menuBackground, Color{12, 10, 16, 255});
     drawDarkLayer();
 
-    drawPanel(340, 120, 600, 440);
+    drawPanel(340, 110, 600, 470);
     int headingWidth = MeasureText("Settings", 40);
-    DrawText("Settings", (SCREEN_WIDTH - headingWidth) / 2, 150, 40, GOLD);
+    DrawText("Settings", (SCREEN_WIDTH - headingWidth) / 2, 136, 40, GOLD);
 
-    const char* const labels[SETTINGS_ROW_COUNT] = {"Sound", "Free Play", "Menu music",
-                                                    "Game music", "Effects"};
+    const char* const labels[SETTINGS_ROW_COUNT] = {"Sound",      "Free Play", "Menu music",
+                                                    "Game music", "Effects",   "Fullscreen"};
     Settings settings = ui.settings;
     for (int row = 0; row < SETTINGS_ROW_COUNT; row++) {
         int y = getSettingsRowY(row);
@@ -2021,7 +2039,12 @@ void drawSettings(const Textures& textures, const UiState& ui) {
 
         const int* volume = getVolumeSetting(settings, row);
         if (volume == nullptr) {
-            bool isOn = row == 0 ? settings.isSoundOn : settings.isFreePlay;
+            bool isOn = settings.isFullscreen;
+            if (row == 0) {
+                isOn = settings.isSoundOn;
+            } else if (row == 1) {
+                isOn = settings.isFreePlay;
+            }
             DrawText(isOn ? "On" : "Off", SLIDER_X, y, 30, isOn ? GOLD : GRAY);
             continue;
         }
@@ -2036,8 +2059,8 @@ void drawSettings(const Textures& textures, const UiState& ui) {
                  isFocused ? GOLD : RAYWHITE);
     }
 
-    const char* note = "Free Play: all open, nothing saved.";
-    DrawText(note, (SCREEN_WIDTH - MeasureText(note, 20)) / 2, 500, 20, LIGHTGRAY);
+    const char* note = "Free Play: all open, nothing saved.   F11: fullscreen";
+    DrawText(note, (SCREEN_WIDTH - MeasureText(note, 20)) / 2, 528, 20, LIGHTGRAY);
 
     drawButtonStyle("Back", BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT,
                     ui.selectedItem == SETTINGS_ROW_COUNT, false, textures);
@@ -2268,18 +2291,8 @@ Screen getNextScreen(Screen screen, GameState& game, UiState& ui, float deltaTim
             ui.selectedItem = 0;
             return openNameEntry(ui);
         }
-        Vector2 mouseDelta = GetMouseDelta();
-        Vector2 pointer = GetMousePosition();
-        bool isMouseClick = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-        if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f || isMouseClick) {
-            ui.isMouseActive = true;
-            ui.selectedItem =
-                isPointerOverButton(pointer, BACK_BUTTON_X, BACK_BUTTON_Y, BUTTON_WIDTH,
-                                    BUTTON_HEIGHT)
-                    ? 0
-                    : -1;
-        }
-        if (isMouseClick && ui.selectedItem == 0) {
+        // A click anywhere also starts
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             ui.selectedItem = 0;
             return openNameEntry(ui);
         }
@@ -2453,7 +2466,7 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
 
     // Every screen fades in from black when it opens
     if (ui.screenSeconds < SCREEN_FADE_SECONDS) {
-        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT,
                       Fade(BLACK, 1.0f - ui.screenSeconds / SCREEN_FADE_SECONDS));
     }
 }

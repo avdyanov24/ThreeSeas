@@ -1164,6 +1164,27 @@ void testTutorial(int& failures) {
     destroyGame(game);
 }
 
+// Checks the fullscreen setting and the walk timer that keeps the walk animation going.
+void testFullscreenAndWalking(int& failures) {
+    std::remove("save/settings.txt");
+    Settings settings = loadSettings();
+    check("T30 the game starts windowed by default", !settings.isFullscreen, failures);
+    settings.isFullscreen = true;
+    saveSettings(settings);
+    check("T30 fullscreen is remembered", loadSettings().isFullscreen, failures);
+    std::remove("save/settings.txt");
+
+    Maze maze = createMovementTestMaze();
+    Player player{};
+    check("T30 a step starts the walk timer", tryMove(maze, player, RIGHT) &&
+                                                  player.walkSeconds > 0.24f, failures);
+    updateVisualPosition(player, 0.1f);
+    check("T30 the walk timer outlasts a water step", player.walkSeconds > 0.14f, failures);
+    updateVisualPosition(player, 0.5f);
+    check("T30 the walk timer stops at 0", player.walkSeconds == 0.0f, failures);
+    destroyMaze(maze);
+}
+
 // Runs every test and returns 0 only if every check passed.
 int main() {
     int failures = 0;
@@ -1198,6 +1219,7 @@ int main() {
     testSettingsAndVolumes(failures);
     testRememberedPlayers(failures);
     testTutorial(failures);
+    testFullscreenAndWalking(failures);
 
     if (failures == 0) {
         std::cout << "All tests passed\n";

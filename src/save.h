@@ -42,7 +42,7 @@ int loadLastSetup(std::string names[], CharacterId heroes[], int maxCount);
 bool saveLastSetup(const std::string names[], const CharacterId heroes[], int count);
 
 // Reads save/settings.txt. A missing or broken file gives the defaults (sound on,
-// Free Play off, menu music 5, game music 4, effects 8). Volumes outside 0 to
+// Free Play off, windowed, menu music 5, game music 4, effects 8). Volumes outside 0 to
 // MAX_VOLUME are ignored.
 Settings loadSettings();
 
