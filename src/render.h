@@ -86,6 +86,9 @@ struct Textures {
     Texture2D hudPortraitFrame;
     Texture2D hudTorchbarFull;
     Texture2D hudTorchbarEmpty;
+    Texture2D hudTorchbarLow;
+    Texture2D iconCrown;
+    Texture2D introBackgrounds[LEVEL_COUNT];  // one painting for each level intro
     Texture2D floors[FLOOR_VARIANTS];
     int floorWeights[FLOOR_VARIANTS];
     Texture2D wallTops[WALL_TOP_VARIANTS];
