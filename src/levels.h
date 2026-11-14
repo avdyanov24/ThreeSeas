@@ -19,7 +19,7 @@ bool isLevelUnlocked(int levelId, bool hasResultForPreviousLevel, bool isFreePla
 // A hero is unlocked once the player has entered the hero's era.
 bool isCharacterUnlocked(CharacterId id, int highestEraEntered, bool isFreePlay);
 
-// Arena 1 needs 1 finished era, arena 2 needs 2, arena 3 needs 3.
+// Arena 1 is always open, arena 2 needs 1 finished era, arena 3 needs 2.
 // Free Play opens everything.
 bool isArenaUnlocked(int arenaId, int erasFinished, bool isFreePlay);
 

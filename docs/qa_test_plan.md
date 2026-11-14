@@ -104,13 +104,13 @@
 - **Expected result:** Another player loses a turn; the owner and LEVSKI do not. Krum visibility is not testable here.
 - **Actual result:** Passed on 5 Nov 2026 (3 checks, all PASS)
 
-### T14: Water step cost
+### T14: Water slows walking
 
-- **Purpose:** Check that entering WATER costs 2 multiplayer steps.
-- **Function tested:** `getStepCost`
-- **Input:** Check the step cost for a WATER cell in a multiplayer maze.
-- **Expected result:** The step cost is 2.
-- **Actual result:** Passed on 5 Nov 2026 (5 checks, all PASS)
+- **Purpose:** Check that leaving a WATER cell takes twice as long as leaving a floor cell.
+- **Function tested:** `updateCampaign`
+- **Input:** Hold RIGHT on a water cell for 0.12 s, then 0.12 s more, then 0.12 s on floor.
+- **Expected result:** No move after 0.12 s, one move after 0.24 s, one move after 0.12 s on floor.
+- **Actual result:** Passed on 14 Nov 2026 (3 checks, all PASS)
 
 ### T15: Campaign stars
 
@@ -140,9 +140,9 @@
 
 - **Purpose:** Check that results can be saved and loaded and a missing file is handled.
 - **Function tested:** `saveResult`, `loadResults`
-- **Input:** Save and load the documented record `Ivan 3 84.5 2`; load results when `save/results.txt` is missing.
-- **Expected result:** The record is read back; a missing file returns 0.
-- **Actual result:** Passed on 6 Nov 2026 (1 checks, all PASS)
+- **Input:** Save and load the documented record `Ivan 3 84.5 2`; save a slower result and then a faster result with fewer stars; load results when `save/results.txt` is missing.
+- **Expected result:** The record is read back; the best time is kept and the stars never go down; a missing file returns 0.
+- **Actual result:** Passed on 14 Nov 2026 (13 checks, all PASS)
 
 ### T19: Destroy maze
 
@@ -156,7 +156,7 @@
 
 - **Purpose:** Check level, character, and arena unlock rules with and without Free Play.
 - **Function tested:** `isLevelUnlocked`, `isCharacterUnlocked`, `isArenaUnlocked`
-- **Input:** Check level 2 without a previous result; KRUM before era 1 is entered; arena 1 with 0 eras finished; then check each with Free Play.
+- **Input:** Check level 2 without a previous result; KRUM before era 1 is entered; arenas 1, 2 and 3 with 0, 1 and 2 eras finished; then check each with Free Play.
 - **Expected result:** The first checks are locked; Free Play opens each one.
 - **Actual result:** Passed on 6 Nov 2026 (4 checks, all PASS)
 

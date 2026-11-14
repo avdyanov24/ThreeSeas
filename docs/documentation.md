@@ -152,7 +152,7 @@ A missing or broken file is not an error: the game starts with empty data or the
 - The nine mazes are in three eras. Era I adds traps and doors, Era II adds water and Era III adds cold.
 - The start fuel is the maze size times the level's fuel factor, and the player chooses a size from 10 to 50.
 - Stars: 3 stars for a time of at most 4 seconds per maze size, 2 stars for at most 7 seconds, 1 star for any finish.
-- Only the first maze is open at the start. Finishing a maze opens the next one. Finishing the hard maze of an era opens the next era and that era's multiplayer arena. Heroes unlock when their era is entered. Free Play in the settings opens everything.
+- Only the first maze is open at the start. Finishing a maze opens the next one. Finishing the hard maze of an era opens the next era and that era's multiplayer arena. The first arena, Pliska, is open from the start. Heroes unlock when their era is entered. Free Play in the settings opens everything.
 
 ### Multiplayer
 

@@ -119,18 +119,6 @@ bool tryMove(Maze& maze, Player& player, Direction direction) {
     return true;
 }
 
-// Returns the cost to enter a cell, or 1 when the cell is outside the maze.
-int getStepCost(const Maze& maze, int row, int col) {
-    if (!isInside(maze, row, col)) {
-        return 1;
-    }
-
-    if (maze.cells[row][col].tile == WATER) {
-        return 2;
-    }
-    return 1;
-}
-
 // Advances campaign time and fuel, and moves at the shared walking interval.
 void updateCampaign(GameState& game, int heldDirection, float deltaTime) {
     if (game.players == nullptr || game.playerCount == 0 || game.level == nullptr ||
@@ -322,9 +310,9 @@ static float approachValue(float current, float target, float step) {
     return current < target ? current + step : current - step;
 }
 
-// Slides the drawn position of the player towards their cell at 8 cells per second.
+// Slides the drawn position of the player towards their cell at 10 cells per second.
 void updateVisualPosition(Player& player, float deltaTime) {
-    float step = deltaTime * 8.0f;
+    float step = deltaTime * 10.0f;
     player.visualRow = approachValue(player.visualRow, static_cast<float>(player.row), step);
     player.visualCol = approachValue(player.visualCol, static_cast<float>(player.col), step);
 }
@@ -372,8 +360,6 @@ void nextTurn(GameState& game) {
         game.currentPlayer = index;
         break;
     }
-
-    game.stepsLeft = 3;
 }
 
 // Returns the seconds of a turn: 8 + size / 5 at first, 1 less after every full round,
