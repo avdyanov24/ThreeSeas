@@ -133,9 +133,22 @@ static void playFrameSounds(Sounds& sounds, UiState& ui, const GameState& game, 
     }
 }
 
+// Returns where the 1280 x 720 game picture goes in the window: as big as fits, centred,
+// with black bars on the sides that are left over.
+static Rectangle getViewRectangle() {
+    float windowWidth = static_cast<float>(GetScreenWidth());
+    float windowHeight = static_cast<float>(GetScreenHeight());
+    float scaleX = windowWidth / GAME_WIDTH;
+    float scaleY = windowHeight / GAME_HEIGHT;
+    float scale = scaleX < scaleY ? scaleX : scaleY;
+    float width = GAME_WIDTH * scale;
+    float height = GAME_HEIGHT * scale;
+    return Rectangle{(windowWidth - width) / 2.0f, (windowHeight - height) / 2.0f, width, height};
+}
+
 // Opens the game window and runs the screen state machine.
 int main() {
-    InitWindow(1280, 720, "Three Seas");
+    InitWindow(GAME_WIDTH, GAME_HEIGHT, "Three Seas");
     SetTargetFPS(60);
     SetExitKey(KEY_NULL);
     InitAudioDevice();
@@ -144,6 +157,12 @@ int main() {
     GameState game = createEmptyGame();
     UiState ui = {};
     ui.settings = loadSettings();
+    if (ui.settings.isFullscreen) {
+        ToggleBorderlessWindowed();
+    }
+    // Every frame is drawn on this 1280 x 720 canvas and then scaled to the window
+    RenderTexture2D canvas = LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT);
+    SetTextureFilter(canvas.texture, TEXTURE_FILTER_BILINEAR);
     srand(static_cast<unsigned int>(time(nullptr)));
     int loadedLevelId = 1;
     Textures textures = loadTextures(*getLevel(loadedLevelId));
@@ -152,6 +171,19 @@ int main() {
     Screen screen = TITLE;
 
     while (!WindowShouldClose() && !ui.isExitRequested) {
+        // F11 switches fullscreen, like the switch in Settings
+        if (IsKeyPressed(KEY_F11)) {
+            ui.settings.isFullscreen = !ui.settings.isFullscreen;
+            saveSettings(ui.settings);
+        }
+        if (ui.settings.isFullscreen != IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE)) {
+            ToggleBorderlessWindowed();
+        }
+        // The mouse is turned into game coordinates, so buttons work at any window size
+        Rectangle view = getViewRectangle();
+        SetMouseOffset(static_cast<int>(-view.x), static_cast<int>(-view.y));
+        SetMouseScale(GAME_WIDTH / view.width, GAME_HEIGHT / view.height);
+
         float deltaTime = GetFrameTime();
         Screen previousScreen = screen;
         Screen nextScreen = updateScreen(screen, game, ui, deltaTime);
@@ -181,13 +213,23 @@ int main() {
         }
         playFrameSounds(sounds, ui, game, screen, previousScreen, deltaTime);
 
-        BeginDrawing();
+        BeginTextureMode(canvas);
         ClearBackground(BLACK);
         drawScreen(screen, game, ui, textures);
+        EndTextureMode();
+
+        BeginDrawing();
+        ClearBackground(BLACK);
+        // A render texture is upside down, so the source height is negative
+        Rectangle source = {0.0f, 0.0f, static_cast<float>(GAME_WIDTH),
+                            -static_cast<float>(GAME_HEIGHT)};
+        DrawTexturePro(canvas.texture, source, getViewRectangle(), Vector2{0.0f, 0.0f}, 0.0f,
+                       WHITE);
         EndDrawing();
     }
 
     destroyGame(game);
+    UnloadRenderTexture(canvas);
     unloadTextures(textures);
     unloadSounds(sounds);
     CloseAudioDevice();

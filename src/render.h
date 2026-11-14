@@ -18,6 +18,8 @@ const int DECAL_VARIANTS = 6;
 const int EXIT_FRAMES = 4;
 const int HERO_FRAMES = 4;
 const int HUD_HEIGHT = 88;
+const int GAME_WIDTH = 1280;  // the game is drawn at this size and scaled to the window
+const int GAME_HEIGHT = 720;
 const int ERA_MAP_COUNT = 3;
 const int PIN_FRAMES = 4;
 
@@ -62,6 +64,7 @@ struct HeroTextures {
 // most levels and ice on Shipka; levels without it leave those textures empty.
 struct Textures {
     Texture2D titleScreen;
+    Texture2D titleBackground;  // the title painting without the logo
     Texture2D menuBackground;
     Texture2D menuLogo;
     Texture2D buttonNormal;

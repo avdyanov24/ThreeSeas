@@ -178,6 +178,7 @@ Settings loadSettings() {
     Settings settings;
     settings.isSoundOn = true;
     settings.isFreePlay = false;
+    settings.isFullscreen = false;
     settings.menuMusicVolume = 5;
     settings.gameMusicVolume = 4;
     settings.effectsVolume = 8;
@@ -218,6 +219,9 @@ Settings loadSettings() {
         if (word == "sound") {
             settings.isSoundOn = (value == 1);
         }
+        if (word == "fullscreen") {
+            settings.isFullscreen = (value == 1);
+        }
         if (word == "freeplay") {
             settings.isFreePlay = (value == 1);
         }
@@ -236,6 +240,7 @@ bool saveSettings(const Settings& settings) {
 
     output << "sound " << (settings.isSoundOn ? 1 : 0) << '\n';
     output << "freeplay " << (settings.isFreePlay ? 1 : 0) << '\n';
+    output << "fullscreen " << (settings.isFullscreen ? 1 : 0) << '\n';
     output << "menumusic " << settings.menuMusicVolume << '\n';
     output << "gamemusic " << settings.gameMusicVolume << '\n';
     output << "effects " << settings.effectsVolume << '\n';

@@ -231,3 +231,11 @@
 - **Input:** Build the tutorial on a size 12 maze; start the tutorial and walk its whole path, reading the map on the way.
 - **Expected result:** Only a 10 x 10 maze is accepted; the maze has its start, door and exit; the player starts at (0, 0) with 60 fuel; the steps go 0, 2, 3, 4, 5, 6 and end at 8 on the exit.
 - **Actual result:** Passed on 14 Nov 2026 (10 checks, all PASS)
+
+### T30: Fullscreen and walking
+
+- **Purpose:** Check that fullscreen is remembered and that the walk animation timer bridges the time between steps.
+- **Function tested:** `loadSettings`, `saveSettings`, `tryMove`, `updateVisualPosition`
+- **Input:** Load settings with no file, save fullscreen on and load again; take one step and let 0.1 s and then 0.5 s pass.
+- **Expected result:** Windowed by default and fullscreen after saving it; the walk timer starts above 0.24 s, is still running after 0.1 s and stops at 0.
+- **Actual result:** Passed on 14 Nov 2026 (5 checks, all PASS)

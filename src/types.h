@@ -87,6 +87,7 @@ struct Player {
     int turnsToSkip;     // multiplayer trap penalty
     float stuckSeconds;  // campaign trap penalty
     float visualRow, visualCol;  // where the hero is drawn: slides towards row and col
+    float walkSeconds;           // counts down after a step; the walk animation plays above 0
     Direction facing;            // the way the hero looks, for the walking pictures
     bool** seen;         // this player's memory of the maze: seen[row][col]
 };
@@ -146,6 +147,7 @@ const int MAX_VOLUME = 10;  // volumes go from 0 (silent) to MAX_VOLUME
 struct Settings {
     bool isSoundOn;
     bool isFreePlay;
+    bool isFullscreen;
     int menuMusicVolume;  // ambience in the menus, 0 to MAX_VOLUME
     int gameMusicVolume;  // ambience while playing, 0 to MAX_VOLUME
     int effectsVolume;    // every sound effect, 0 to MAX_VOLUME

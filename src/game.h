@@ -82,6 +82,7 @@ bool placeTrap(Maze& maze, Player& player, int playerIndex);
 // Moves the drawn position of the player (visualRow, visualCol) towards their real cell, 10
 // cells per second, so the hero slides from cell to cell instead of jumping. Call it once
 // per frame. It never changes row or col.
+// Also counts walkSeconds down to 0.
 void updateVisualPosition(Player& player, float deltaTime);
 
 // Returns true if the player stands on the EXIT tile.

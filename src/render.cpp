@@ -182,6 +182,7 @@ Textures loadTextures(const Level& level) {
 // Loads the title and main-menu art with nearest-neighbour filtering.
 void loadUiTextures(Textures& textures) {
     std::string art = ART_DIR;
+    textures.titleBackground = loadPixelTexture(art + "/07_screens/title/title_background.png");
     textures.titleScreen =
         loadPixelTexture(art + "/07_screens/title/title_screen.png");
     textures.menuBackground = loadPixelTexture(art + "/01_ui/backgrounds/menu_background.png");
@@ -249,6 +250,7 @@ void loadUiTextures(Textures& textures) {
 // Frees every texture
 void unloadTextures(Textures& textures) {
     unloadOne(textures.titleScreen);
+    unloadOne(textures.titleBackground);
     unloadOne(textures.menuBackground);
     unloadOne(textures.menuLogo);
     unloadOne(textures.buttonNormal);
@@ -335,9 +337,9 @@ Vector2 getCameraOrigin(const Maze& maze, const Player& viewer) {
     float worldSize = static_cast<float>((maze.size + 2) * TILE_SIZE);
     float centerX = (viewer.visualCol + 1.5f) * TILE_SIZE;
     float centerY = (viewer.visualRow + 1.5f) * TILE_SIZE;
-    return Vector2{getCameraAxis(centerX, worldSize, static_cast<float>(GetScreenWidth())),
+    return Vector2{getCameraAxis(centerX, worldSize, static_cast<float>(GAME_WIDTH)),
                    getCameraAxis(centerY, worldSize,
-                                 static_cast<float>(GetScreenHeight() - HUD_HEIGHT)) - HUD_HEIGHT};
+                                 static_cast<float>(GAME_HEIGHT - HUD_HEIGHT)) - HUD_HEIGHT};
 }
 
 // Draws a texture at TILE_SCALE with its top-left at (x, y), turned around its centre
@@ -646,8 +648,8 @@ void drawMaze(const GameState& game, const Player& viewer, const Textures& textu
         return;
     }
     Vector2 camera = getCameraOrigin(maze, viewer);
-    int screenWidth = GetScreenWidth();
-    int screenHeight = GetScreenHeight();
+    int screenWidth = GAME_WIDTH;
+    int screenHeight = GAME_HEIGHT;
     for (int row = -1; row <= maze.size; row++) {
         for (int col = -1; col <= maze.size; col++) {
             int x = (col + 1) * TILE_SIZE - static_cast<int>(camera.x);
@@ -708,7 +710,8 @@ void drawPlayerSeenBy(const GameState& game, const Player& viewer, const Player&
     // The hero walks while the drawn position is still sliding to the real cell
     float rowGap = player.visualRow - static_cast<float>(player.row);
     float colGap = player.visualCol - static_cast<float>(player.col);
-    bool isMoving = (rowGap > 0.02f || rowGap < -0.02f || colGap > 0.02f || colGap < -0.02f);
+    bool isSliding = rowGap > 0.02f || rowGap < -0.02f || colGap > 0.02f || colGap < -0.02f;
+    bool isMoving = isSliding || player.walkSeconds > 0.0f;
 
     const Texture2D* frames = hero.idle;
     double framesPerSecond = 5.0;
@@ -716,7 +719,7 @@ void drawPlayerSeenBy(const GameState& game, const Player& viewer, const Player&
     if (player.stuckSeconds > 0.0f) {
         frames = hero.stuck;
     } else if (isMoving) {
-        framesPerSecond = 12.0;
+        framesPerSecond = 8.0;  // two walk cycles a second, close to the walking pace
         if (player.facing == UP) {
             frames = hero.walkUp;
         } else if (player.facing == DOWN) {
@@ -849,7 +852,7 @@ void drawHud(const GameState& game, const Player& viewer, const Textures& textur
     } else if (fuelRatio > 1.0f) {
         fuelRatio = 1.0f;
     }
-    int screenWidth = GetScreenWidth();
+    int screenWidth = GAME_WIDTH;
     DrawRectangle(0, 0, screenWidth, HUD_HEIGHT, Color{18, 14, 20, 255});
     DrawRectangle(0, HUD_HEIGHT - 3, screenWidth, 3, Color{110, 78, 40, 255});
 
