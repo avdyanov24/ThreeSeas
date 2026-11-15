@@ -7,7 +7,7 @@ bool parseWholeNumber(const std::string& text, int& number) {
     }
 
     int parsedNumber = 0;
-    int length = text.length();
+    int length = static_cast<int>(text.length());
     for (int i = 0; i < length; i++) {
         char character = text[i];
         if (character < '0' || character > '9') {
@@ -40,7 +40,7 @@ bool isValidName(const std::string& name) {
         return false;
     }
 
-    int length = name.length();
+    int length = static_cast<int>(name.length());
     for (int i = 0; i < length; i++) {
         char character = name[i];
         bool isLowercaseLetter = character >= 'a' && character <= 'z';
