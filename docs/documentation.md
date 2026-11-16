@@ -6,7 +6,7 @@ School project "Labyrinth", C++17, 2026. The executable and the repository are c
 
 Three Seas is a dark dungeon maze game set in Bulgarian history. Every maze is a real historical place. The player carries a torch that burns down, and only the lit area is visible. The goal is to find the exit before the flame dies.
 
-- **Campaign:** 1 player, real time, 9 mazes in 3 eras. Hold the arrow keys to walk.
+- **Campaign:** 1 player, real time, 9 mazes in 3 eras. Hold the arrow keys or WASD to walk.
 - **Multiplayer:** 2 to 4 players on one laptop. Every player starts in their own corner, the exit is hidden in a room far from all corners, and turns have a time limit.
 - 6 historical heroes, each with one power that is always on.
 - 4 items: oil, map, key and trap.
@@ -108,9 +108,9 @@ A missing or broken file is not an error: the game starts with empty data or the
 
 | Key | Action |
 |---|---|
-| Arrow keys | Move (hold to keep walking) |
-| `M` | Use a Map item |
-| `1` / `2` | Multiplayer: use a Map / place a Trap |
+| Arrow keys or WASD | Move (hold to keep walking) |
+| `M` or `1` | Use a Map item (all modes) |
+| `2` | Multiplayer: place a Trap |
 | `Enter` | Confirm, or end your turn early |
 | `Esc` | Pause menu or back |
 | `F11` | Fullscreen on or off |
@@ -118,7 +118,7 @@ A missing or broken file is not an error: the game starts with empty data or the
 
 ### The torch
 
-- It burns 1 fuel every 2 seconds, twice as fast in cold places. When the fuel is 0 the torch is out and the maze must be played again.
+- It burns 2 fuel every second on easy mazes, 2.25 on medium and 2.5 on hard, twice as fast in cold places. When the fuel is 0 the torch is out and the maze must be played again.
 - The light radius depends on the fuel: more than 60% gives 3 cells, 30% to 60% gives 2 cells, below 30% gives 1 cell and the screen flickers.
 - Places you have seen stay dim on screen. Places you have never seen are black.
 
@@ -127,7 +127,7 @@ A missing or broken file is not an error: the game starts with empty data or the
 | Item | Effect |
 |---|---|
 | Oil | Refills 25% of the maximum fuel, never above the maximum |
-| Map | Press `M` to reveal 4 cells around you |
+| Map | Press `M` or `1` to reveal 6 cells around you |
 | Key | Opens every locked door in the maze |
 | Trap | Multiplayer: placed on your own cell, invisible to the others |
 
@@ -162,7 +162,7 @@ A missing or broken file is not an error: the game starts with empty data or the
 - 2 to 4 players, each hero only once per game. The maze size is 20 to 50.
 - Start fuel is the maze size times 2, and every player starts with 1 trap.
 - Each turn has a time limit: 8 seconds plus one fifth of the maze size seconds at first (12 seconds for size 20, 18 for size 50). The time gets 1 second shorter after every full round and never goes below half of the start time.
-- During a turn the player holds the arrow keys to walk. A turn ends when the time is over, when the player presses `Enter`, or when the player springs a trap. Ending a turn burns 1 fuel (2 in the cold arena).
+- During a turn the player holds the arrow keys or WASD to walk. A turn ends when the time is over, when the player presses `Enter`, or when the player springs a trap. The torch burns 1 fuel every second of the turn (2 in the cold arena), so the fuel bar goes down while you play.
 - Other players are drawn only when they are inside your torchlight. A black "Pass to <name>" screen separates the turns.
 - The first player on the exit wins. A player with no fuel is out. If one torch is still burning, that player wins. If the last torches go out together, the game is a draw. A win is saved for the leaderboard.
 - Arenas: Pliska (traps, doors, keys), Tsarevets (adds water) and Balkan Pass (adds cold).

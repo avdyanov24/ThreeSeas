@@ -143,9 +143,10 @@ void updateCampaign(GameState& game, int heldDirection, float deltaTime) {
     }
     float previousTime = game.timeSeconds;
     game.timeSeconds += deltaTime;
-    float fuelPerSecond = 0.5f;
+    // Harder mazes burn faster: 2 fuel a second when easy, 2.25 medium, 2.5 hard
+    float fuelPerSecond = 1.75f + 0.25f * static_cast<float>(game.level->difficulty);
     if (game.level->isCold) {
-        fuelPerSecond = 1.0f;
+        fuelPerSecond *= 2.0f;
     }
     burnFuel(player, deltaTime * fuelPerSecond);
     if (player.isOut) {
@@ -278,9 +279,9 @@ void useMap(const Maze& maze, Player& player) {
         return;
     }
 
-    int radius = 4;
+    int radius = 6;
     if (player.character == SIMEON) {
-        radius = 8;
+        radius = 12;
     }
     int radiusSquared = radius * radius;
     for (int row = 0; row < maze.size; row++) {
@@ -344,17 +345,12 @@ int calculateStars(int size, float seconds) {
     return 1;
 }
 
-// Burns the current player's fuel and advances to the next player who can take a turn.
+// Advances to the next player who can take a turn. The fuel was already burned during the
+// turn by updateTurn.
 void nextTurn(GameState& game) {
     if (game.players == nullptr || game.playerCount == 0) {
         return;
     }
-
-    float fuelCost = 1.0f;
-    if (game.level != nullptr && game.level->isCold) {
-        fuelCost = 2.0f;
-    }
-    burnFuel(game.players[game.currentPlayer], fuelCost);
 
     for (int i = 1; i <= 2 * game.playerCount; i++) {
         int index = (game.currentPlayer + i) % game.playerCount;
@@ -381,6 +377,16 @@ bool updateTurn(GameState& game, int heldDirection, float deltaTime) {
     float previousTime = game.timeSeconds;
     game.timeSeconds += deltaTime;
     game.turnSecondsLeft -= deltaTime;
+
+    // The torch burns all through the turn, so the fuel bar goes down while the player plays
+    float fuelPerSecond = 1.0f;
+    if (game.level != nullptr && game.level->isCold) {
+        fuelPerSecond = 2.0f;
+    }
+    burnFuel(player, deltaTime * fuelPerSecond);
+    if (player.isOut) {
+        return true;
+    }
 
     // A step happens each time the game time passes a whole number of steps
     float stepSeconds = getStepSeconds(game.maze, player);

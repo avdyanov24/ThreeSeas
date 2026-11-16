@@ -29,7 +29,7 @@ A dark dungeon maze game set in Bulgarian history. Every maze is a real historic
 
 Nine mazes in three eras. Get from the top-left corner to the exit in the bottom-right corner before your torch goes out. Faster means more stars. Finishing a maze unlocks the next one.
 
-- The torch burns 1 fuel every 2 seconds (twice as fast in cold places). Less fuel means a smaller circle of light.
+- The torch burns 2 fuel every second on easy mazes, 2.25 on medium and 2.5 on hard (twice as fast in cold places). Less fuel means a smaller circle of light.
 - Places you have already seen stay dim on screen. Places you have never seen are black.
 - You choose the maze size (10 to 50) before each level.
 
@@ -45,8 +45,8 @@ Nine mazes in three eras. Get from the top-left corner to the exit in the bottom
 Every player starts in their own corner of one big maze. The exit is hidden in a room far from all corners, so you have to find it. Each player sees only their own torchlight, and other players show up when they are inside your light.
 
 - Each turn has a time limit: 12 seconds on a size 20 maze, 18 on size 50, and one second less after every full round (never less than half).
-- Hold the arrow keys to walk. The turn ends when the time is over, when you press Enter, or when you step on a trap.
-- Press 1 to use a Map, or 2 to place a Trap on your cell. Others cannot see your trap.
+- Hold the arrow keys or WASD to walk. The turn ends when the time is over, when you press Enter, or when you step on a trap.
+- Press 1 or M to use a Map, or 2 to place a Trap on your cell. Others cannot see your trap.
 - A black screen says who is next. The first player to reach the exit wins, or the last torch still burning.
 - Each hero can be picked once per game, and mazes are 20 to 50 cells.
 
@@ -54,9 +54,9 @@ Every player starts in their own corner of one big maze. The exit is hidden in a
 
 | Key | Action |
 |---|---|
-| Arrow keys | Move (hold to keep walking) |
-| M | Use a Map item |
-| 1 / 2 | Multiplayer: Map / Trap |
+| Arrow keys or WASD | Move (hold to keep walking) |
+| M or 1 | Use a Map item (all modes) |
+| 2 | Multiplayer: place a Trap |
 | Enter | Confirm, or end your turn early |
 | Esc | Pause menu / back |
 | F11 | Fullscreen on or off |
@@ -67,7 +67,7 @@ Every player starts in their own corner of one big maze. The exit is hidden in a
 | Item | Effect |
 |---|---|
 | Oil | Refills 25% of the maximum fuel |
-| Map | Reveals 4 cells around you (press M) |
+| Map | Reveals 6 cells around you (press M or 1) |
 | Key | Opens every locked door in the maze |
 
 | Tile | Meaning |
