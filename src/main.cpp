@@ -69,7 +69,7 @@ static void startMultiplayerGame(GameState& game, const UiState& ui, Level& aren
     arenaLevel.place = arena->name;
     arenaLevel.hasWater = arena->hasWater;
     arenaLevel.isCold = arena->isCold;
-    arenaLevel.oilPer100 = 3.0f;
+    arenaLevel.oilPer100 = 1.5f;
     arenaLevel.trapsPer100 = 0.0f;  // the players place the traps
     arenaLevel.doors = ui.chosenSize / 10;
 

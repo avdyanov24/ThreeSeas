@@ -233,6 +233,7 @@ void loadUiTextures(Textures& textures) {
     textures.hudTorchbarEmpty = loadPixelTexture(hud + "hud_torchbar_empty.png");
     textures.hudTorchbarLow = loadPixelTexture(hud + "hud_torchbar_low.png");
     textures.iconCrown = loadPixelTexture(art + "/01_ui/icons/icon_crown.png");
+    textures.iconCheck = loadPixelTexture(art + "/01_ui/icons/icon_check.png");
 
     const char* const introFiles[LEVEL_COUNT] = {
         "01_pliska/intro_background/pliska_intro",
@@ -289,6 +290,7 @@ void unloadTextures(Textures& textures) {
     unloadOne(textures.hudTorchbarEmpty);
     unloadOne(textures.hudTorchbarLow);
     unloadOne(textures.iconCrown);
+    unloadOne(textures.iconCheck);
     unloadMany(textures.introBackgrounds, LEVEL_COUNT);
     unloadMany(textures.floors, FLOOR_VARIANTS);
     unloadMany(textures.wallTops, WALL_TOP_VARIANTS);
@@ -903,7 +905,7 @@ void drawHud(const GameState& game, const Player& viewer, const Textures& textur
     if (game.isMultiplayer) {
         DrawText(viewer.name.c_str(), 836, 12, 20, GOLD);
         DrawText(TextFormat("Turn %d", game.turnNumber), 836, 38, 20, RAYWHITE);
-        DrawText("1 map  2 trap  Enter end", 836, 62, 20, LIGHTGRAY);
+        DrawText("1/M map  2 trap  Enter end", 836, 62, 20, LIGHTGRAY);
     } else {
         if (game.level != nullptr) {
             // Cherven has no known year (0), so only its name is shown
@@ -913,7 +915,7 @@ void drawHud(const GameState& game, const Player& viewer, const Textures& textur
             }
             DrawText(place, 836, 12, 20, GOLD);
         }
-        DrawText("M map   Esc pause", 836, 62, 20, LIGHTGRAY);
+        DrawText("M/1 map   Esc pause", 836, 62, 20, LIGHTGRAY);
     }
 
     // The portrait at half its size (64 px) in a thin bronze frame

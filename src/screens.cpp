@@ -62,11 +62,19 @@ const int PIN_POSITIONS[ERA_COUNT][PINS_PER_ERA][2] = {
 const int HOWTO_ROWS = 9;
 const int HOWTO_PAGE_COUNT = 3;  // Campaign, Multiplayer, Heroes
 const int HOWTO_TAB_X[HOWTO_PAGE_COUNT] = {440, 640, 840};  // centre of each page tab
+// Why each hero has their power, in CharacterId order (shown on the Heroes page)
+const char* const HERO_STORIES[6] = {
+    "Led the Bulgars on the long march to the Danube and founded the state in 681.",
+    "A master of ambushes. He trapped the Byzantines in the Varbitsa Pass in 811.",
+    "Baptised Bulgaria in 864 and brought in the schools of the Cyrillic script.",
+    "Ruled the Golden Age of books and learning in Preslav.",
+    "Won at Klokotnitsa in 1230 and opened Bulgaria to three seas.",
+    "The Apostle of Freedom slipped through Ottoman police traps for years."};
 const char* const HOWTO_CAMPAIGN_TEXT[HOWTO_ROWS] = {
     "Your torch lights the maze around you.",
     "Fuel burns with time. At zero the torch dies.",
     "Oil refills 25% of your fuel.",
-    "Press M to read a Map of the area around you.",
+    "Press M or 1 to read a Map of the area around you.",
     "Pick up the key to open doors.",
     "Doors stay shut without the key.",
     "Water slows you down.",
@@ -74,8 +82,8 @@ const char* const HOWTO_CAMPAIGN_TEXT[HOWTO_ROWS] = {
     "Finish fast for up to 3 stars."};
 const char* const HOWTO_MULTIPLAYER_TEXT[HOWTO_ROWS] = {
     "Find the hidden exit before the others.",
-    "Each turn has a time limit. Hold arrows to walk.",
-    "Press 1 to use a Map.",
+    "Each turn has a time limit. Hold arrows or WASD to walk.",
+    "Press 1 or M to use a Map.",
     "Press 2 to place a Trap under your feet.",
     "Press Enter to end your turn early.",
     "Pass the laptop between turns, no peeking.",
@@ -207,6 +215,24 @@ void drawIcon(const Texture2D& texture, int x, int y, int size, float alpha) {
     Rectangle destination = {static_cast<float>(x), static_cast<float>(y),
                              static_cast<float>(size), static_cast<float>(size)};
     DrawTexturePro(texture, source, destination, Vector2{0.0f, 0.0f}, 0.0f, Fade(WHITE, alpha));
+}
+
+// Draws one animated hero standing with its feet at (centerX, feetY), scale times its pixel
+// size (a whole number keeps the pixels sharp). alpha (0 to 1) fades it. Returns nothing.
+void drawStandingHero(const Texture2D frames[HERO_FRAMES], int centerX, int feetY, int scale,
+                      float alpha) {
+    int frame = static_cast<int>(GetTime() * 5.0) % HERO_FRAMES;
+    const Texture2D& sprite = frames[frame];
+    if (sprite.id == 0) {
+        return;
+    }
+    float width = static_cast<float>(sprite.width * scale);
+    float height = static_cast<float>(sprite.height * scale);
+    Rectangle source = {0.0f, 0.0f, static_cast<float>(sprite.width),
+                        static_cast<float>(sprite.height)};
+    Rectangle destination = {static_cast<float>(centerX) - width / 2.0f,
+                             static_cast<float>(feetY) - height, width, height};
+    DrawTexturePro(sprite, source, destination, Vector2{0.0f, 0.0f}, 0.0f, Fade(WHITE, alpha));
 }
 
 // Returns the screen position of the centre of a pin (0 to 2) on the map of an era (1 to 3).
@@ -1762,7 +1788,7 @@ Screen checkMultiplayerEnd(GameState& game, UiState& ui, Screen otherwise) {
     return MP_RESULT;
 }
 
-// Ends the turn of the current player: burns their fuel and passes the turn on, gives the
+// Ends the turn of the current player: passes the turn on, gives the
 // next player their seconds, then looks for a winner. Returns MP_RESULT when the game is
 // over, otherwise PASS_SCREEN.
 Screen endMultiplayerTurn(GameState& game, UiState& ui) {
@@ -1770,9 +1796,28 @@ Screen endMultiplayerTurn(GameState& game, UiState& ui) {
     return checkMultiplayerEnd(game, ui, PASS_SCREEN);
 }
 
+// Returns the walking key held this frame (an arrow key or W, A, S, D) as a Direction value,
+// or -1 for none.
+int getHeldDirection() {
+    if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W)) {
+        return UP;
+    }
+    if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S)) {
+        return DOWN;
+    }
+    if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
+        return LEFT;
+    }
+    if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
+        return RIGHT;
+    }
+    return -1;
+}
+
 // Runs one multiplayer frame. The player has a few seconds per turn (they shrink every
-// round): hold an arrow key to walk (water is slower), 1 uses a Map, 2 places a Trap and
-// Enter ends the turn early. The turn also ends when the time runs out or a trap springs.
+// round): hold an arrow key or W, A, S, D to walk (water is slower), 1 or M uses a Map,
+// 2 places a Trap and Enter ends the turn early. The turn also ends when the time runs out,
+// the torch goes out or a trap springs.
 // Returns PASS_SCREEN after a turn, MP_RESULT when the game is over, PAUSED for Esc,
 // otherwise PLAYING.
 Screen updateMultiplayerGame(GameState& game, UiState& ui, float deltaTime) {
@@ -1787,23 +1832,14 @@ Screen updateMultiplayerGame(GameState& game, UiState& ui, float deltaTime) {
     if (IsKeyPressed(KEY_ENTER)) {
         return endMultiplayerTurn(game, ui);
     }
-    if (IsKeyPressed(KEY_ONE)) {
+    if (IsKeyPressed(KEY_ONE) || IsKeyPressed(KEY_M)) {
         useMap(game.maze, player);
     }
     if (IsKeyPressed(KEY_TWO)) {
         placeTrap(game.maze, player, game.currentPlayer);
     }
 
-    int heldDirection = -1;
-    if (IsKeyDown(KEY_UP)) {
-        heldDirection = UP;
-    } else if (IsKeyDown(KEY_DOWN)) {
-        heldDirection = DOWN;
-    } else if (IsKeyDown(KEY_LEFT)) {
-        heldDirection = LEFT;
-    } else if (IsKeyDown(KEY_RIGHT)) {
-        heldDirection = RIGHT;
-    }
+    int heldDirection = getHeldDirection();
     // The rules of the turn are in game.cpp; this screen only reads the keys
     bool isTurnOver = updateTurn(game, heldDirection, deltaTime);
     Screen next = checkMultiplayerEnd(game, ui, PLAYING);
@@ -1872,8 +1908,8 @@ Screen updateMultiplayerResult(GameState& game, UiState& ui) {
     return MP_RESULT;
 }
 
-// Draws the multiplayer result: the winner and their hero, or a draw, and the Rematch
-// and Menu buttons.
+// Draws the multiplayer result: the winner and their hero, the next two players fainter
+// by place with their names, or a draw, and the Rematch and Menu buttons.
 void drawMultiplayerResult(const GameState& game, const Textures& textures, const UiState& ui) {
     // The painting stays still so the winner can stand on its middle altar
     drawScreenBackground(textures.multiplayerResult, Color{12, 10, 16, 255});
@@ -1889,16 +1925,39 @@ void drawMultiplayerResult(const GameState& game, const Textures& textures, cons
             DrawText(hero->name.c_str(), (SCREEN_WIDTH - heroWidth) / 2, 160, 20, LIGHTGRAY);
         }
         // The winner and the crown on the middle altar, the others on the side altars
-        drawIcon(textures.iconCrown, 608, 190, 64, 1.0f);
-        drawIcon(textures.heroes[winner.character].portrait, 576, 255, 128, 1.0f);
-        const int sideAltarX[2] = {360, 856};
-        int sideCount = 0;
-        for (int i = 0; i < game.playerCount && sideCount < 2; i++) {
+        // The heroes are their game sprites: the winner cheers, the others stand still
+        drawIcon(textures.iconCrown, 608, 180, 64, 1.0f);
+        drawStandingHero(textures.heroes[winner.character].win, 640, 392, 3, 1.0f);
+
+        // The other players in place order: the one with the most fuel left comes second
+        int others[MAX_PLAYERS] = {};
+        int otherCount = 0;
+        for (int i = 0; i < game.playerCount; i++) {
             if (i != game.winner) {
-                drawIcon(textures.heroes[game.players[i].character].portrait,
-                         sideAltarX[sideCount], 386, 64, 0.7f);
-                sideCount++;
+                others[otherCount] = i;
+                otherCount++;
             }
+        }
+        for (int i = 1; i < otherCount; i++) {
+            for (int j = i; j > 0 && game.players[others[j]].fuel >
+                                         game.players[others[j - 1]].fuel; j--) {
+                int swapped = others[j];
+                others[j] = others[j - 1];
+                others[j - 1] = swapped;
+            }
+        }
+
+        // Second place on the left altar, third on the right; each place is fainter
+        const int sideAltarCenterX[2] = {392, 888};
+        const float placeAlpha[2] = {0.75f, 0.5f};
+        for (int place = 0; place < otherCount && place < 2; place++) {
+            const Player& player = game.players[others[place]];
+            const Texture2D* frames = textures.heroes[player.character].idle;
+            int x = sideAltarCenterX[place];
+            drawStandingHero(frames, x, 452, 2, placeAlpha[place]);
+            int headY = 452 - frames[0].height * 2;
+            drawFadedTextPlate(player.name.c_str(), x, headY - 34, 22, RAYWHITE,
+                               placeAlpha[place]);
         }
     } else if (game.winner == DRAW) {
         drawTextPlate("Draw: all torches went out", SCREEN_WIDTH / 2, 120, 40, ERROR_RED);
@@ -2078,17 +2137,26 @@ void drawSettings(const Textures& textures, const UiState& ui) {
 
 // The message of every tutorial step, from 0 to TUTORIAL_DONE_STEP
 const char* const TUTORIAL_MESSAGES[TUTORIAL_DONE_STEP + 1] = {
-    "Hold the arrow keys to walk. Follow the path.",
+    "Hold the arrows or WASD to walk. Follow the path.",
     "Your torch burns fuel: the bar at the top shows how much is left. Walk over the oil "
     "to refill it.",
     "A map shows the maze around you. Pick up the map scroll.",
-    "Press M to read the map.",
+    "Press M or 1 to read the map.",
     "Keys open locked doors. Take the key.",
     "With the key the door is open. Walk through it.",
     "A trap is hidden near here. You only see a trap when you stand next to it. Walk "
     "around it.",
     "Almost done! Find the exit and step on it.",
-    "Tutorial complete! Press Enter to start the campaign."};
+    "You found the exit!"};
+const int TUTORIAL_END_ITEM_COUNT = 2;
+const char* const TUTORIAL_END_ITEMS[TUTORIAL_END_ITEM_COUNT] = {"Start campaign",
+                                                                 "Main menu"};
+const int TUTORIAL_END_BUTTON_Y = 470;
+const int TUTORIAL_LESSON_COUNT = 5;
+// What the tutorial taught, listed on the tutorial complete screen
+const char* const TUTORIAL_LESSONS[TUTORIAL_LESSON_COUNT] = {
+    "Walk with the arrows or WASD", "Refill your torch with oil", "Read a map with M or 1",
+    "Open locked doors with a key", "Watch out for hidden traps"};
 
 // Starts the tutorial: frees any game, so main builds the tutorial maze. Returns PLAYING.
 Screen openTutorial(GameState& game, UiState& ui) {
@@ -2102,26 +2170,17 @@ Screen openTutorial(GameState& game, UiState& ui) {
     return PLAYING;
 }
 
-// Returns the arrow key held this frame as a Direction value, or -1 for none.
-int getHeldDirection() {
-    if (IsKeyDown(KEY_UP)) {
-        return UP;
-    }
-    if (IsKeyDown(KEY_DOWN)) {
-        return DOWN;
-    }
-    if (IsKeyDown(KEY_LEFT)) {
-        return LEFT;
-    }
-    if (IsKeyDown(KEY_RIGHT)) {
-        return RIGHT;
-    }
-    return -1;
+// Returns true when the tutorial maze has faded out and the tutorial complete screen shows.
+bool isTutorialEndShown(const UiState& ui) {
+    return ui.isTutorial && ui.tutorialStep == TUTORIAL_DONE_STEP &&
+           ui.endBeatSeconds >= END_BEAT_SECONDS;
 }
 
 // Runs one frame of the tutorial maze: walking, the map key and the steps. Esc skips the
-// tutorial. After the exit (or a dead torch) Enter goes on. Returns MAIN_MENU for Esc,
-// CAMPAIGN_MAP after the exit, otherwise PLAYING (a new tutorial after a dead torch).
+// tutorial. After the exit the hero finishes the step, the maze fades out and the tutorial
+// complete screen offers Start campaign and Main menu. After a dead torch Enter starts
+// again. Returns MAIN_MENU for Esc or Main menu, CAMPAIGN_MAP for Start campaign,
+// otherwise PLAYING (a new tutorial after a dead torch).
 Screen updateTutorial(GameState& game, UiState& ui, float deltaTime) {
     if (IsKeyPressed(KEY_ESCAPE)) {
         requestSound(ui, SOUND_CLICK);
@@ -2130,24 +2189,39 @@ Screen updateTutorial(GameState& game, UiState& ui, float deltaTime) {
         ui.selectedItem = 0;
         return MAIN_MENU;
     }
-    bool isDone = ui.tutorialStep == TUTORIAL_DONE_STEP;
-    bool isOut = game.players[0].isOut;
-    if (isDone || isOut) {
+    if (ui.tutorialStep == TUTORIAL_DONE_STEP) {
+        // The hero finishes sliding onto the exit, so the sprite never freezes mid-step
+        updateVisualPosition(game.players[0], deltaTime);
+        ui.endBeatSeconds += deltaTime;
+        if (!isTutorialEndShown(ui)) {
+            ui.selectedItem = 0;
+            return PLAYING;
+        }
+        int choice = updateButtonMenu(ui, TUTORIAL_END_ITEM_COUNT, TUTORIAL_END_BUTTON_Y);
+        if (choice < 0) {
+            return PLAYING;
+        }
+        destroyGame(game);
+        ui.isTutorial = false;
+        ui.endBeatSeconds = 0.0f;
+        ui.selectedItem = 0;
+        if (choice == 0) {
+            return openCampaign(ui);
+        }
+        return MAIN_MENU;
+    }
+    if (game.players[0].isOut) {
         if (!IsKeyPressed(KEY_ENTER)) {
             return PLAYING;
         }
         requestSound(ui, SOUND_CLICK);
         destroyGame(game);
-        if (isOut) {
-            ui.tutorialStep = 0;  // main builds a fresh tutorial maze
-            return PLAYING;
-        }
-        ui.isTutorial = false;
-        return openCampaign(ui);
+        ui.tutorialStep = 0;  // main builds a fresh tutorial maze
+        return PLAYING;
     }
 
     Player before = game.players[0];
-    if (IsKeyPressed(KEY_M)) {
+    if (IsKeyPressed(KEY_M) || IsKeyPressed(KEY_ONE)) {
         useMap(game.maze, game.players[0]);
     }
     updateCampaign(game, getHeldDirection(), deltaTime);
@@ -2175,6 +2249,44 @@ void drawTutorialBox(const GameState& game, const UiState& ui) {
     const char* skip = "Esc: skip tutorial";
     DrawText(skip, 1110 - MeasureText(skip, 20), 606, 20, GRAY);
     drawWrappedText(message, 170, 640, 940, 20, RAYWHITE);
+}
+
+// Draws the tutorial complete screen: the win painting, a heading, the cheering hero, a
+// list of what the tutorial taught that ticks in one row at a time, and the Start campaign
+// and Main menu buttons. Everything fades in after the maze faded out.
+void drawTutorialEnd(const Textures& textures, const UiState& ui) {
+    float seconds = ui.endBeatSeconds - END_BEAT_SECONDS;  // time on this screen
+    drawScreenBackground(textures.resultWin, Color{12, 10, 16, 255});
+    drawEmbers();
+
+    float headingProgress = getProgress(seconds, 0.0f, 0.4f);
+    drawFadedTextPlate("Tutorial complete!", SCREEN_WIDTH / 2,
+                       64 - static_cast<int>((1.0f - headingProgress) * 40.0f), 40, GOLD,
+                       headingProgress);
+    drawFadedTextPlate("You are ready for the campaign.", SCREEN_WIDTH / 2, 130, 22,
+                       RAYWHITE, getProgress(seconds, 0.3f, 0.4f));
+
+    // The hero cheers on the floor left of the list, 4 times the sprite size
+    drawStandingHero(textures.heroes[ui.characters[0]].win, 230, 620, 4, 1.0f);
+
+    drawPanel(400, 178, 480, 270);
+    DrawText("What you learned", 430, 198, 24, GOLD);
+    for (int i = 0; i < TUTORIAL_LESSON_COUNT; i++) {
+        // Each row ticks in a little after the one above it
+        float rowProgress = getProgress(seconds, 0.5f + 0.2f * static_cast<float>(i), 0.3f);
+        int rowY = 240 + i * 40;
+        int checkSize = static_cast<int>(32.0f * getPopScale(rowProgress));
+        drawIcon(textures.iconCheck, 446 - checkSize / 2, rowY + 12 - checkSize / 2, checkSize,
+                 rowProgress > 0.0f ? 1.0f : 0.0f);
+        DrawText(TUTORIAL_LESSONS[i], 476, rowY + 2, 22, Fade(RAYWHITE, rowProgress));
+    }
+
+    drawButtonMenu(textures, ui, TUTORIAL_END_ITEMS, TUTORIAL_END_ITEM_COUNT,
+                   TUTORIAL_END_BUTTON_Y);
+
+    // The screen comes out of the black the maze faded into
+    float fadeIn = getProgress(seconds, 0.0f, 0.3f);
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 1.0f - fadeIn));
 }
 
 // Handles How to Play: Left/Right (or a click on a tab) change the page, Back and
@@ -2272,16 +2384,17 @@ void drawHowToPlay(const Textures& textures, const UiState& ui) {
         }
         drawHowToRules(icons, HOWTO_MULTIPLAYER_TEXT, ui);
     } else {
-        // Two columns of three heroes: portrait, name, era and power
+        // Two columns of three heroes: portrait, name, era, power and why they have it
         const char* const eras[4] = {"", "Era I", "Era II", "Era III"};
         for (int id = ASPARUH; id <= LEVSKI; id++) {
             const Character* hero = getCharacter(static_cast<CharacterId>(id));
-            int x = id < 3 ? 180 : 660;
-            int y = 150 + (id % 3) * 132;
+            int x = id < 3 ? 160 : 650;
+            int y = 140 + (id % 3) * 136;
             drawIcon(textures.heroes[id].portrait, x, y, 128, 1.0f);
-            DrawText(hero->name.c_str(), x + 144, y + 16, 30, GOLD);
-            DrawText(eras[hero->era], x + 144, y + 56, 20, LIGHTGRAY);
-            DrawText(hero->power.c_str(), x + 144, y + 84, 20, RAYWHITE);
+            DrawText(hero->name.c_str(), x + 144, y + 2, 30, GOLD);
+            DrawText(eras[hero->era], x + 144, y + 36, 20, LIGHTGRAY);
+            DrawText(hero->power.c_str(), x + 144, y + 60, 20, RAYWHITE);
+            drawWrappedText(HERO_STORIES[id], x + 144, y + 88, 330, 16, GRAY);
         }
     }
 
@@ -2333,18 +2446,9 @@ Screen getNextScreen(Screen screen, GameState& game, UiState& ui, float deltaTim
             ui.selectedItem = 0;
             return PAUSED;
         }
-        int heldDirection = -1;
-        if (IsKeyDown(KEY_UP)) {
-            heldDirection = UP;
-        } else if (IsKeyDown(KEY_DOWN)) {
-            heldDirection = DOWN;
-        } else if (IsKeyDown(KEY_LEFT)) {
-            heldDirection = LEFT;
-        } else if (IsKeyDown(KEY_RIGHT)) {
-            heldDirection = RIGHT;
-        }
+        int heldDirection = getHeldDirection();
         Player before = game.players[0];
-        if (IsKeyPressed(KEY_M)) {
+        if (IsKeyPressed(KEY_M) || IsKeyPressed(KEY_ONE)) {
             useMap(game.maze, game.players[0]);
         }
         updateCampaign(game, heldDirection, deltaTime);
@@ -2438,6 +2542,8 @@ void drawScreen(Screen screen, const GameState& game, const UiState& ui,
         drawTitleScreen(textures, ui);
     } else if (screen == NAME_ENTRY) {
         drawNameEntry(textures, ui);
+    } else if (screen == PLAYING && isTutorialEndShown(ui)) {
+        drawTutorialEnd(textures, ui);
     } else if (screen == PLAYING && game.players != nullptr && game.playerCount > 0) {
         drawGameplay(game, textures);
         if (ui.isTutorial) {

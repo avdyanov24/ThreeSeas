@@ -226,11 +226,11 @@ Window 1280x720, 60 FPS, camera follows the player (a 50x50 maze must work).
 
 ### 5.1 Controls
 
-Arrow keys move (hold to walk, about 8 cells/s, arrows only, no diagonals). `M` uses a Map. `Esc` pause/back. Mouse/Enter for menus. Multiplayer: `1` Map, `2` Trap, `Enter` ends the turn early.
+Arrow keys or WASD move (hold to walk, about 8 cells/s, no diagonals). `M` or `1` uses a Map. `Esc` pause/back. Mouse/Enter for menus. Multiplayer: `2` Trap, `Enter` ends the turn early.
 
 ### 5.2 Torch
 
-- Burns 1 fuel per 2 s (twice as fast in cold places). Oil refills 25% of max fuel, never above max. At 0 fuel: torch out, restart the same maze (new random layout).
+- Burns 2 fuel per second on easy mazes, 2.25 on medium, 2.5 on hard (twice as fast in cold places). Oil refills 25% of max fuel, never above max. At 0 fuel: torch out, restart the same maze (new random layout).
 - Radius: more than 60% fuel = 3 cells; 30% to 60% = 2; below 30% = 1 (screen flickers); 0 = out. Boris I adds +1.
 
 ### 5.3 Items and tiles
@@ -238,7 +238,7 @@ Arrow keys move (hold to walk, about 8 cells/s, arrows only, no diagonals). `M` 
 | Item | Effect |
 |---|---|
 | Oil | +25% of max fuel |
-| Map | Press M: permanently reveals radius 4 around you (Simeon: 8) |
+| Map | Press M or 1: permanently reveals radius 6 around you (Simeon: 12) |
 | Key | Opens every locked door in the maze; you keep it (Ivan Asen II needs none) |
 
 | Tile | Meaning |
@@ -259,7 +259,7 @@ Only Pliska is open at the start. Finishing a maze opens the next. Finishing an 
 
 ### 5.6 Multiplayer
 
-2 to 4 players, each character once per game. Maze size 20 to 50 (30 suggested). Start fuel = size x 2. On a turn: move up to 3 steps **or** use one item (ends the turn); torch loses 1 fuel (2 in the cold arena). Every player starts with 1 Trap. Traps sit on your own cell, invisible to others (except Krum), harmless to you. First player on the exit wins; a player at 0 fuel is out; last torch burning wins; last torches out in the same round = draw. A black "Pass to <name>. Press Enter." screen separates turns.
+2 to 4 players, each character once per game. Maze size 20 to 50 (30 suggested). Start fuel = size x 2. On a turn: move up to 3 steps **or** use one item (ends the turn); torch burns 1 fuel per second of the turn (2 in the cold arena). Every player starts with 1 Trap. Traps sit on your own cell, invisible to others (except Krum), harmless to you. First player on the exit wins; a player at 0 fuel is out; last torch burning wins; last torches out in the same round = draw. A black "Pass to <name>. Press Enter." screen separates turns.
 
 Arenas: I Pliska (traps, doors, keys), II Tsarevets/Tarnovo (+ water), III Balkan Pass (+ cold, torch x2). Each unlocks when its era is finished.
 
@@ -282,15 +282,15 @@ Difficulty comes only from these numbers. Changing difficulty means changing num
 
 | # | Maze | Year | Era | Start fuel | Oil/100 cells | Traps/100 | Doors | Water | Cold |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | Pliska | 681 | I | size x 4.0 | 3 | 0 | 0 | no | no |
-| 2 | Varbitsa Pass | 811 | I | size x 3.5 | 2 | 2 | 0 | no | no |
-| 3 | Preslav | 893 | I | size x 3.0 | 1.5 | 1 | 3 | no | no |
-| 4 | Tarnovo | 1185 | II | size x 3.75 | 3 | 0 | 2 | no | no |
-| 5 | Cherven | 13th-14th c. | II | size x 3.25 | 2 | 0 | 0 | yes | no |
-| 6 | Klokotnitsa | 1230 | II | size x 2.75 | 1.5 | 2 | 3 | yes | no |
-| 7 | Koprivshtitsa | 1876 | III | size x 3.5 | 2.5 | 1 | 2 | no | no |
-| 8 | Plovdiv | 1885 | III | size x 3.0 | 2 | 0 | 2 | yes | no |
-| 9 | Shipka | 1877 | III | size x 2.5 | 1.5 | 2 | 3 | yes | yes |
+| 1 | Pliska | 681 | I | size x 4.0 | 1.5 | 0 | 0 | no | no |
+| 2 | Varbitsa Pass | 811 | I | size x 3.5 | 1 | 2 | 0 | no | no |
+| 3 | Preslav | 893 | I | size x 3.0 | 0.75 | 1 | 3 | no | no |
+| 4 | Tarnovo | 1185 | II | size x 3.75 | 1.5 | 0 | 2 | no | no |
+| 5 | Cherven | 13th-14th c. | II | size x 3.25 | 1 | 0 | 0 | yes | no |
+| 6 | Klokotnitsa | 1230 | II | size x 2.75 | 0.75 | 2 | 3 | yes | no |
+| 7 | Koprivshtitsa | 1876 | III | size x 3.5 | 1.25 | 1 | 2 | no | no |
+| 8 | Plovdiv | 1885 | III | size x 3.0 | 1 | 0 | 2 | yes | no |
+| 9 | Shipka | 1877 | III | size x 2.5 | 0.75 | 2 | 3 | yes | yes |
 
 Every maze has 2 Map items on easy mazes and 1 on medium and hard. Mazes with doors have exactly 1 Key. Each era adds one mechanic: I traps and doors, II water, III cold.
 

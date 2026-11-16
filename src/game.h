@@ -46,8 +46,8 @@ float getStepSeconds(const Maze& maze, const Player& player);
 // One frame of the campaign. heldDirection is -1 when no arrow key is held,
 // otherwise a Direction value. Adds deltaTime to the timer, moves the player one
 // cell every 0.12 s (0.24 s on water), handles being stuck, calls pickUpItem and
-// updateSeen after each move, burns fuel by time and sets game.winner to 0 when
-// the exit is reached.
+// updateSeen after each move, burns fuel (2 a second when easy, 2.25 medium,
+// 2.5 hard, twice that when cold) and sets game.winner to 0 when the exit is reached.
 void updateCampaign(GameState& game, int heldDirection, float deltaTime);
 
 // Subtracts amount from the fuel (never below 0). Sets isOut when it reaches 0.
@@ -71,7 +71,7 @@ void updateSeen(const Maze& maze, Player& player);
 // trap disappears.
 void pickUpItem(GameState& game, Player& player);
 
-// Uses one Map item: reveals a radius of 4 cells around the player (8 for SIMEON)
+// Uses one Map item: reveals a radius of 6 cells around the player (12 for SIMEON)
 // by marking them as seen. Does nothing if the player has no map.
 void useMap(const Maze& maze, Player& player);
 
@@ -92,16 +92,17 @@ bool hasReachedExit(const Maze& maze, const Player& player);
 // otherwise 1.
 int calculateStars(int size, float seconds);
 
-// Multiplayer: ends the current turn. Burns the fuel of the current player (1,
-// or 2 when the level is cold), then picks the next player who is not out,
-// skipping and wrapping around. A player with turnsToSkip loses that turn.
+// Multiplayer: ends the current turn (the fuel already burned during it in updateTurn),
+// then picks the next player who is not out, skipping and wrapping around. A player with
+// turnsToSkip loses that turn.
 void nextTurn(GameState& game);
 
 // Multiplayer: one frame of the current player's turn. heldDirection is -1 when no arrow key
 // is held, otherwise a Direction value. Adds deltaTime to the game time, takes it off the
-// turn time and moves the player one cell every getStepSeconds, with pickUpItem and
-// updateSeen after each move. Returns true when the turn is over: the turn time ran out or
-// the player sprang a trap. Reaching the exit is found by checkWinner.
+// turn time, burns 1 fuel a second (2 when cold) and moves the player one cell every
+// getStepSeconds, with pickUpItem and updateSeen after each move. Returns true when the
+// turn is over: the turn time ran out, the torch went out or the player sprang a trap.
+// Reaching the exit is found by checkWinner.
 bool updateTurn(GameState& game, int heldDirection, float deltaTime);
 
 // Multiplayer: ends the current turn with nextTurn, counts the new turn and gives the next

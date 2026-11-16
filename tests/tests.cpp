@@ -248,7 +248,7 @@ void testLevelData(int& failures) {
          681,
          1,
          4.0f,
-         3.0f,
+         1.5f,
          0.0f,
          0,
          false,
@@ -262,7 +262,7 @@ void testLevelData(int& failures) {
          811,
          2,
          3.5f,
-         2.0f,
+         1.0f,
          2.0f,
          0,
          false,
@@ -274,7 +274,7 @@ void testLevelData(int& failures) {
          893,
          3,
          3.0f,
-         1.5f,
+         0.75f,
          1.0f,
          3,
          false,
@@ -287,7 +287,7 @@ void testLevelData(int& failures) {
          1185,
          1,
          3.75f,
-         3.0f,
+         1.5f,
          0.0f,
          2,
          false,
@@ -301,7 +301,7 @@ void testLevelData(int& failures) {
          0,
          2,
          3.25f,
-         2.0f,
+         1.0f,
          0.0f,
          0,
          true,
@@ -315,7 +315,7 @@ void testLevelData(int& failures) {
          1230,
          3,
          2.75f,
-         1.5f,
+         0.75f,
          2.0f,
          3,
          true,
@@ -328,7 +328,7 @@ void testLevelData(int& failures) {
          1876,
          1,
          3.5f,
-         2.5f,
+         1.25f,
          1.0f,
          2,
          false,
@@ -340,7 +340,7 @@ void testLevelData(int& failures) {
          1885,
          2,
          3.0f,
-         2.0f,
+         1.0f,
          0.0f,
          2,
          true,
@@ -354,7 +354,7 @@ void testLevelData(int& failures) {
          1877,
          3,
          2.5f,
-         1.5f,
+         0.75f,
          2.0f,
          3,
          true,
@@ -406,11 +406,11 @@ void testCampaignHudState(int& failures) {
     updateCampaign(game, RIGHT, 0.12f);
     check("HUD campaign movement advances time and burns real fuel",
           player.col == 1 && std::fabs(game.timeSeconds - 0.12f) < 0.001f &&
-              std::fabs(player.fuel - 39.94f) < 0.001f && player.seen[0][4], failures);
+              std::fabs(player.fuel - 39.76f) < 0.001f && player.seen[0][4], failures);
     updateCampaign(game, -1, 1.0f);
     check("HUD idle campaign still advances time and fuel",
           player.col == 1 && std::fabs(game.timeSeconds - 1.12f) < 0.001f &&
-              std::fabs(player.fuel - 39.44f) < 0.001f, failures);
+              std::fabs(player.fuel - 37.76f) < 0.001f, failures);
     player.row = game.maze.size - 1;
     player.col = game.maze.size - 2;
     updateCampaign(game, RIGHT, 0.12f);
@@ -428,7 +428,7 @@ void testCampaignHudState(int& failures) {
               game.players[0].maxFuel == 187.5f, failures);
     updateCampaign(game, -1, 1.0f);
     check("HUD cold campaign burns twice the normal fuel",
-          game.players[0].fuel == 186.5f, failures);
+          game.players[0].fuel == 182.5f, failures);
     burnFuel(game.players[0], 1000.0f);
     float outTime = game.timeSeconds;
     updateCampaign(game, RIGHT, 1.0f);
@@ -626,7 +626,7 @@ void testNextPlayer(int& failures) {
     players[0].isOut = true;
     nextTurn(game);
     check("T16 next active player wraps past player 0", game.currentPlayer == 1, failures);
-    check("T16 ending the turn burns one fuel", players[2].fuel == 49.0f, failures);
+    check("T16 ending the turn burns no extra fuel", players[2].fuel == 50.0f, failures);
 
     players[0].isOut = true;
     players[1].turnsToSkip = 1;
@@ -972,6 +972,8 @@ void testTurnRules(int& failures) {
     check("T25 holding an arrow walks one cell", player.col == 1 && !isTurnOver, failures);
     check("T25 the turn time counts down",
           std::fabs(game.turnSecondsLeft - 9.88f) < 0.001f, failures);
+    check("T25 the torch burns during the turn",
+          std::fabs(player.fuel - (player.maxFuel - 0.12f)) < 0.001f, failures);
 
     game.maze.cells[0][1].tile = WATER;
     game.timeSeconds = 0.0f;
@@ -988,6 +990,12 @@ void testTurnRules(int& failures) {
 
     game.turnSecondsLeft = 0.05f;
     check("T25 the turn ends when the time runs out", updateTurn(game, -1, 0.1f), failures);
+
+    game.turnSecondsLeft = 5.0f;
+    player.fuel = 0.01f;
+    player.isOut = false;
+    check("T25 the turn ends when the torch burns out",
+          updateTurn(game, -1, 0.1f) && player.isOut, failures);
 
     startNextTurn(game);
     check("T25 the next player takes the turn", game.currentPlayer == 1, failures);
@@ -1006,9 +1014,16 @@ void testItemsAndData(int& failures) {
     Player& player = game.players[1];
 
     player.maps = 1;
+    // Cells 6 and 7 rows away from the player, in the direction that stays inside the maze
+    int step = player.row >= 7 ? -1 : 1;
+    int sixAwayRow = player.row + 6 * step;
+    int sevenAwayRow = player.row + 7 * step;
     check("T26 a far cell is not seen before the map", !player.seen[5][9], failures);
     useMap(game.maze, player);
-    check("T26 the map reveals 4 cells around the player", player.seen[5][9], failures);
+    check("T26 the map reveals 6 cells around the player",
+          player.seen[5][9] && player.seen[sixAwayRow][player.col], failures);
+    check("T26 the map does not reveal 7 cells away", !player.seen[sevenAwayRow][player.col],
+          failures);
     check("T26 using a map spends it", player.maps == 0, failures);
     player.seen[5][9] = false;
     useMap(game.maze, player);

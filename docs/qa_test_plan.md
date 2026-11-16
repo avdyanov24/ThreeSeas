@@ -205,7 +205,7 @@
 - **Purpose:** Check the Map and Trap items and the arena and hero tables.
 - **Function tested:** `useMap`, `placeTrap`, `getArena`, `getCharacter`
 - **Input:** Use a map with and without one, place a trap twice with one trap, read arenas 0 to 4 and Levski.
-- **Expected result:** The map reveals 4 cells and is spent, nothing happens without a map, the first trap is placed and owned, the second fails, arena 1 is Pliska, arena 3 is cold, bad ids return `nullptr`, Levski unlocks in era III.
+- **Expected result:** The map reveals 6 cells (not 7) and is spent, nothing happens without a map, the first trap is placed and owned, the second fails, arena 1 is Pliska, arena 3 is cold, bad ids return `nullptr`, Levski unlocks in era III.
 - **Actual result:** Passed on 14 Nov 2026 (11 checks, all PASS)
 
 ### T27: Settings and volumes
