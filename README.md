@@ -1,5 +1,7 @@
 # Three Seas
 
+**[▶ Live presentation](https://three-seas-presentation.netlify.app)** | **[📄 Project documentation (Word)](docs/Three_Seas_Documentation.docx)**
+
 ![Three Seas title screen](docs/screenshots/01_title.png)
 
 A dark dungeon maze game set in Bulgarian history. Every maze is a real historical place. You carry a torch that slowly burns down, and you only see what it lights. Find the exit before the flame dies.
